@@ -46,7 +46,12 @@ jobs:
           out="dist/gitshield-${GOOS}-${GOARCH}"
           go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/gitshield
           tar -C dist -czf "dist/gitshield-${GOOS}-${GOARCH}.tar.gz" "gitshield-${GOOS}-${GOARCH}"
-          shasum -a 256 "dist/gitshield-${GOOS}-${GOARCH}.tar.gz" > "dist/gitshield-${GOOS}-${GOARCH}.tar.gz.sha256"
+          # Compute the checksum from inside dist/ so the recorded filename
+          # in the .sha256 has no "dist/" prefix baked in — `shasum -c`
+          # resolves that filename relative to its own working directory,
+          # which is a flat download dir (no dist/ subfolder) for every
+          # consumer: install.sh, `gitshield update`, and manual downloads.
+          (cd dist && shasum -a 256 "gitshield-${GOOS}-${GOARCH}.tar.gz" > "gitshield-${GOOS}-${GOARCH}.tar.gz.sha256")
 
       - uses: actions/upload-artifact@v4
         with:
