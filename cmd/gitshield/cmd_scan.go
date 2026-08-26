@@ -24,6 +24,8 @@ func cmdScan(args []string) int {
 		path = fs.Arg(0)
 	}
 
+	maybeAutoUpdate(*gf)
+
 	eng, _, err := loadEngine(*gf)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)

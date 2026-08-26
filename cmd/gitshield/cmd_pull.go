@@ -27,6 +27,8 @@ func cmdPull(args []string) int {
 		return 2
 	}
 
+	maybeAutoUpdate(*gf)
+
 	eng, cfg, err := loadEngine(*gf)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)

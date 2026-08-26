@@ -97,6 +97,29 @@ Every scan is appended to `~/.gitshield/audit.log` (one JSON object per
 line: timestamp, action, repo, user, severity, matched signatures,
 whether it was overridden). Overrides are always logged, override or not.
 
+### Auto-update
+
+`clone`/`pull`/`scan` check at most once every 24 hours (tracked via
+`~/.gitshield/last-auto-update-check`) whether a newer gitshield release or
+IOC signature set is available, and apply it automatically when online:
+
+- **Binary** — always checked; if a newer release exists, it's downloaded,
+  checksum-verified, and swapped in atomically. Doesn't affect the run in
+  progress (the old binary stays loaded in memory) — takes effect next
+  invocation.
+- **Signatures** — only checked if `update_signatures_url` and
+  `update_signatures_pubkey` are set in config.yaml (gitshield never
+  contacts an unpinned source on its own). If updated, the fresh
+  signatures are written to `~/.gitshield/signatures.yaml` and used
+  immediately, in that same scan.
+
+It's entirely best-effort and silent on failure — offline, rate-limited,
+no write permission, whatever — it never blocks or fails the command that
+triggered it. Disable it persistently with `disable_auto_update: true` in
+config.yaml, or for one run with `--no-auto-update`. `gitshield update` /
+`update-signatures` remain available to force either one on demand,
+regardless of this schedule.
+
 ### Detection rules
 
 Signatures are pluggable and versioned (`internal/signatures/default.yaml`,

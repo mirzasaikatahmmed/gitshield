@@ -15,8 +15,10 @@ import (
 // release asset matching this OS/arch, verifies it against the published
 // checksum, and atomically replaces the currently running executable.
 //
-// This is distinct from `update-signatures`, which only refreshes the IOC
-// signature set — this command replaces gitshield itself.
+// This is the manual entry point; autoUpdateBinary in cmd_autoupdate.go
+// does the same fetch+verify+replace on a schedule. It's also distinct
+// from `update-signatures`, which only refreshes the IOC signature set —
+// this command replaces gitshield itself.
 func cmdUpdate(args []string) int {
 	fs := flag.NewFlagSet("update", flag.ContinueOnError)
 	gf := parseCommonFlags(fs)
@@ -53,42 +55,16 @@ func cmdUpdate(args []string) int {
 		return 0
 	}
 
-	tarAsset, sumAsset, err := selfupdate.FindAssets(rel, runtime.GOOS, runtime.GOARCH)
+	binData, err := fetchVerifiedBinary(rel)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)
 		return 2
 	}
 
-	const maxBinaryBytes = 200 * 1024 * 1024
-	tarData, err := selfupdate.Download(tarAsset.URL, maxBinaryBytes)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: downloading", tarAsset.Name+":", err)
-		return 2
-	}
-	sumData, err := selfupdate.Download(sumAsset.URL, 4096)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: downloading", sumAsset.Name+":", err)
-		return 2
-	}
-	if err := selfupdate.VerifyChecksum(tarData, sumData, tarAsset.Name); err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: SIGNATURE/CHECKSUM VERIFICATION FAILED — refusing to install:", err)
-		return 2
-	}
-
-	binName := fmt.Sprintf("gitshield-%s-%s", runtime.GOOS, runtime.GOARCH)
-	binData, err := selfupdate.ExtractFile(tarData, binName)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: extracting release archive:", err)
-		return 2
-	}
-
-	execPath, err := os.Executable()
+	execPath, err := runningExecutablePath()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield: could not determine the running binary's path:", err)
 		return 2
-	}
-	if resolved, err := filepath.EvalSymlinks(execPath); err == nil {
-		execPath = resolved
 	}
 
 	if err := replaceExecutable(execPath, binData); err != nil {
@@ -103,6 +79,49 @@ func cmdUpdate(args []string) int {
 		fmt.Printf("gitshield: updated v%s -> %s (%s)\n", version, rel.TagName, execPath)
 	}
 	return 0
+}
+
+// fetchVerifiedBinary downloads and checksum-verifies the release asset
+// matching the running OS/arch from rel, returning the extracted binary's
+// raw bytes.
+func fetchVerifiedBinary(rel selfupdate.Release) ([]byte, error) {
+	tarAsset, sumAsset, err := selfupdate.FindAssets(rel, runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return nil, err
+	}
+
+	const maxBinaryBytes = 200 * 1024 * 1024
+	tarData, err := selfupdate.Download(tarAsset.URL, maxBinaryBytes)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s: %w", tarAsset.Name, err)
+	}
+	sumData, err := selfupdate.Download(sumAsset.URL, 4096)
+	if err != nil {
+		return nil, fmt.Errorf("downloading %s: %w", sumAsset.Name, err)
+	}
+	if err := selfupdate.VerifyChecksum(tarData, sumData, tarAsset.Name); err != nil {
+		return nil, fmt.Errorf("CHECKSUM VERIFICATION FAILED — refusing to install: %w", err)
+	}
+
+	binName := fmt.Sprintf("gitshield-%s-%s", runtime.GOOS, runtime.GOARCH)
+	binData, err := selfupdate.ExtractFile(tarData, binName)
+	if err != nil {
+		return nil, fmt.Errorf("extracting release archive: %w", err)
+	}
+	return binData, nil
+}
+
+// runningExecutablePath returns the resolved (symlink-free) path to the
+// currently running gitshield binary.
+func runningExecutablePath() (string, error) {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(execPath); err == nil {
+		execPath = resolved
+	}
+	return execPath, nil
 }
 
 // replaceExecutable atomically overwrites target with data: write to a temp

@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/mirzasaikatahmmed/gitshield/internal/config"
@@ -20,7 +19,8 @@ import (
 // <url>.sig (hex-encoded). The download is refused unless it verifies
 // against the pubkey pinned in config — an unauthenticated update mechanism
 // would just be a new attack vector for the same campaign it's defending
-// against.
+// against. This is the manual entry point; autoUpdateSignatures in
+// cmd_autoupdate.go does the same fetch+verify+write on a schedule.
 func cmdUpdateSignatures(args []string) int {
 	fs := flag.NewFlagSet("update-signatures", flag.ContinueOnError)
 	gf := parseCommonFlags(fs)
@@ -43,12 +43,11 @@ func cmdUpdateSignatures(args []string) int {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)
 		return 2
 	}
-
-	url := *urlFlag
-	if url == "" {
-		url = cfg.UpdateSignaturesURL
+	if *urlFlag != "" {
+		cfg.UpdateSignaturesURL = *urlFlag
 	}
-	if url == "" {
+
+	if cfg.UpdateSignaturesURL == "" {
 		fmt.Fprintln(os.Stderr, "gitshield: no signatures URL configured (set update_signatures_url in config.yaml or pass --url)")
 		return 2
 	}
@@ -58,44 +57,14 @@ func cmdUpdateSignatures(args []string) int {
 		return 2
 	}
 
-	data, err := httpGet(url)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: fetching signatures:", err)
-		return 2
-	}
-	sigHex, err := httpGet(url + ".sig")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: fetching signature file:", err)
-		return 2
-	}
-
-	pubKeyBytes, err := hex.DecodeString(cfg.UpdateSignaturesPubKey)
-	if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
-		fmt.Fprintln(os.Stderr, "gitshield: update_signatures_pubkey is not a valid hex-encoded ed25519 public key")
-		return 2
-	}
-	sigBytes, err := hex.DecodeString(trimHexWhitespace(sigHex))
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: signature file is not valid hex")
-		return 2
-	}
-	if !ed25519.Verify(ed25519.PublicKey(pubKeyBytes), data, sigBytes) {
-		fmt.Fprintln(os.Stderr, "gitshield: SIGNATURE VERIFICATION FAILED — refusing to install untrusted signature set")
-		return 2
-	}
-
-	if _, err := signatures.ParseYAML(data); err != nil {
-		fmt.Fprintln(os.Stderr, "gitshield: downloaded signature file is not valid YAML after verification:", err)
-		return 2
-	}
-
-	dir, err := config.Dir()
+	data, err := fetchVerifiedSignatures(cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)
 		return 2
 	}
-	dest := filepath.Join(dir, "signatures.yaml")
-	if err := os.WriteFile(dest, data, 0o600); err != nil {
+
+	dest, err := writeSignatures(data)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield: writing signatures file:", err)
 		return 2
 	}
@@ -104,9 +73,54 @@ func cmdUpdateSignatures(args []string) int {
 		fmt.Printf("{\"status\":\"ok\",\"path\":%q,\"bytes\":%d}\n", dest, len(data))
 	} else {
 		fmt.Printf("gitshield: signature set verified and installed -> %s\n", dest)
-		fmt.Println("gitshield: add `signatures_file: " + dest + "` to config.yaml to use it (kept separate from the pinned default set).")
+		fmt.Println("gitshield: picked up automatically on the next clone/pull/scan (no config change needed)")
 	}
 	return 0
+}
+
+// fetchVerifiedSignatures downloads cfg.UpdateSignaturesURL plus its
+// detached signature and returns the raw, ed25519-verified, YAML-valid
+// bytes. Callers must have already confirmed URL/pubkey are configured.
+func fetchVerifiedSignatures(cfg config.Config) ([]byte, error) {
+	data, err := httpGet(cfg.UpdateSignaturesURL)
+	if err != nil {
+		return nil, fmt.Errorf("fetching signatures: %w", err)
+	}
+	sigHex, err := httpGet(cfg.UpdateSignaturesURL + ".sig")
+	if err != nil {
+		return nil, fmt.Errorf("fetching signature file: %w", err)
+	}
+
+	pubKeyBytes, err := hex.DecodeString(cfg.UpdateSignaturesPubKey)
+	if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("update_signatures_pubkey is not a valid hex-encoded ed25519 public key")
+	}
+	sigBytes, err := hex.DecodeString(trimHexWhitespace(sigHex))
+	if err != nil {
+		return nil, fmt.Errorf("signature file is not valid hex")
+	}
+	if !ed25519.Verify(ed25519.PublicKey(pubKeyBytes), data, sigBytes) {
+		return nil, fmt.Errorf("SIGNATURE VERIFICATION FAILED — refusing to install untrusted signature set")
+	}
+
+	if _, err := signatures.ParseYAML(data); err != nil {
+		return nil, fmt.Errorf("downloaded signature file is not valid YAML after verification: %w", err)
+	}
+	return data, nil
+}
+
+// writeSignatures writes verified signature-set bytes to
+// ~/.gitshield/signatures.yaml, the fixed path EffectiveSignatures always
+// considers.
+func writeSignatures(data []byte) (string, error) {
+	dest, err := config.DefaultSignaturesPath()
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(dest, data, 0o600); err != nil {
+		return "", err
+	}
+	return dest, nil
 }
 
 func httpGet(url string) ([]byte, error) {

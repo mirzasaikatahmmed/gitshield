@@ -66,6 +66,7 @@ type globalFlags struct {
 	forceUnsafe  bool   // required to even attempt overriding HIGH
 	confirmInput string // pre-supplied confirmation phrase, for non-interactive override
 	configPath   string
+	noAutoUpdate bool // skip the background auto-update check for this invocation
 }
 
 func loadEngine(gf globalFlags) (*scanner.Engine, config.Config, error) {

@@ -71,6 +71,17 @@ Common flags:
                           proceed past a HIGH-severity block
   --confirm-phrase <s>    Non-interactive override phrase for HIGH severity
                           (must exactly equal "I ACCEPT THE RISK")
+  --no-auto-update        Skip this run's background auto-update check (see below)
+
+Auto-update:
+  clone/pull/scan check at most once every 24h (silent, best-effort, never
+  blocks or fails the command) whether a newer gitshield release or IOC
+  signature set is available, and applies it automatically when online.
+  Signature auto-update only runs if update_signatures_url/pubkey are set
+  in config.yaml; binary self-update always checks. Disable persistently
+  with disable_auto_update: true in config.yaml, or per-run with
+  --no-auto-update. gitshield update / update-signatures still work on
+  demand regardless of this schedule.
 
 Exit codes:
   0  clean, proceeded
@@ -99,5 +110,6 @@ func parseCommonFlags(fs *flag.FlagSet) *globalFlags {
 	fs.BoolVar(&gf.forceUnsafe, "force-unsafe", false, "allow overriding a HIGH-severity block")
 	fs.StringVar(&gf.confirmInput, "confirm-phrase", "", "non-interactive HIGH-override confirmation phrase")
 	fs.StringVar(&gf.configPath, "config", "", "path to config.yaml (default ~/.gitshield/config.yaml)")
+	fs.BoolVar(&gf.noAutoUpdate, "no-auto-update", false, "skip the background auto-update check for this run")
 	return gf
 }

@@ -28,15 +28,26 @@ signatures:
   #     exact: true
 
 # Or point at a separate signatures file instead of/in addition to inline
-# `signatures:` above — e.g. the file written by `gitshield update-signatures`.
-# signatures_file: ~/.gitshield/signatures.yaml
+# `signatures:` above. Note: ~/.gitshield/signatures.yaml — the file
+# `gitshield update-signatures` writes to, manually or automatically — is
+# ALWAYS merged in too if present, even without setting this.
+# signatures_file: ~/.gitshield/custom-signatures.yaml
 
 # Where `gitshield update-signatures` fetches the latest signature set from.
 # Both <url> and <url>.sig (a hex-encoded ed25519 signature of <url>'s
 # bytes) must be reachable; the update is refused if verification fails.
+# Also gates automatic signature updates (see disable_auto_update below) —
+# gitshield never contacts an unpinned source on its own.
 # update_signatures_url: "https://raw.githubusercontent.com/your-org/gitshield-signatures/main/signatures.yaml"
 
 # ed25519 public key (64 hex chars) used to verify update_signatures_url.
 # Required for `gitshield update-signatures` to run at all — an
 # unauthenticated update mechanism would itself be a supply-chain risk.
 # update_signatures_pubkey: "..."
+
+# clone/pull/scan check at most once every 24h whether a newer gitshield
+# release or (if update_signatures_url/pubkey are set above) IOC signature
+# set is available, and apply it automatically when online — silent,
+# best-effort, never blocks the command. Set true to opt out persistently;
+# --no-auto-update opts out for a single run instead.
+disable_auto_update: false

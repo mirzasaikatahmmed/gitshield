@@ -22,6 +22,8 @@ func cmdClone(args []string) int {
 	}
 	repoURL := fs.Arg(0)
 
+	maybeAutoUpdate(*gf)
+
 	eng, cfg, err := loadEngine(*gf)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield:", err)

@@ -30,13 +30,10 @@ func cmdInstall(args []string) int {
 		return 2
 	}
 
-	src, err := os.Executable()
+	src, err := runningExecutablePath()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "gitshield: could not determine the running binary's path:", err)
 		return 2
-	}
-	if resolved, err := filepath.EvalSymlinks(src); err == nil {
-		src = resolved
 	}
 
 	if err := os.MkdirAll(*prefix, 0o755); err != nil {
@@ -134,10 +131,7 @@ func cmdUninstall(args []string) int {
 		candidates = append(candidates, filepath.Join(*prefix, "gitshield"))
 	} else {
 		candidates = append(candidates, filepath.Join(defaultInstallDir(), "gitshield"), "/usr/local/bin/gitshield")
-		if exe, err := os.Executable(); err == nil {
-			if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-				exe = resolved
-			}
+		if exe, err := runningExecutablePath(); err == nil {
 			candidates = append(candidates, exe)
 		}
 	}
