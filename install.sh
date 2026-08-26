@@ -28,7 +28,11 @@ esac
 command -v curl >/dev/null 2>&1 || { echo "gitshield: curl is required" >&2; exit 1; }
 command -v tar >/dev/null 2>&1 || { echo "gitshield: tar is required" >&2; exit 1; }
 
-tag=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+# 2>/dev/null on the curl: `grep -m1` exits as soon as it sees the first
+# match, closing its end of the pipe while curl may still be writing the
+# rest of the (larger) JSON response — a harmless broken-pipe warning that
+# would otherwise print a scary-looking "curl: (23)" line on every run.
+tag=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
   | grep -m1 '"tag_name"' \
   | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
 
