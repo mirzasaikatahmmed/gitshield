@@ -1,0 +1,91 @@
+// Command gitshield wraps git clone/pull with a mandatory pre-flight scan
+// for the config-file-appended-payload malware campaign described at
+// https://saikat.com.bd/blog/github-config-malware-prevention — see the
+// package doc comments under internal/ for the detection design.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+const version = "0.1.0"
+
+func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
+	if len(args) == 0 {
+		printUsage()
+		return 2
+	}
+
+	switch args[0] {
+	case "clone":
+		return cmdClone(args[1:])
+	case "pull":
+		return cmdPull(args[1:])
+	case "scan":
+		return cmdScan(args[1:])
+	case "update-signatures":
+		return cmdUpdateSignatures(args[1:])
+	case "-h", "--help", "help":
+		printUsage()
+		return 0
+	case "-v", "--version", "version":
+		fmt.Println("gitshield " + version)
+		return 0
+	default:
+		fmt.Fprintf(os.Stderr, "gitshield: unknown command %q\n\n", args[0])
+		printUsage()
+		return 2
+	}
+}
+
+func printUsage() {
+	fmt.Fprint(os.Stderr, `gitshield — pre-clone/pull malware scanner for config-file supply chain attacks
+
+Usage:
+  gitshield clone <repo-url> [flags]     Scan before cloning into a new directory
+  gitshield pull [flags]                 Scan the incoming ref before fast-forwarding
+  gitshield scan <path> [flags]          Scan an already-cloned directory
+  gitshield update-signatures [flags]    Fetch the latest signature set
+  gitshield version                      Print the version
+
+Common flags:
+  --json                Emit machine-readable JSON instead of a human report
+  --config <path>        Use an alternate config file (default ~/.gitshield/config.yaml)
+  --yes, -y               Auto-confirm MODERATE-severity prompts (does NOT bypass HIGH)
+  --force-unsafe          Required (with --confirm-phrase or an interactive prompt) to
+                          proceed past a HIGH-severity block
+  --confirm-phrase <s>    Non-interactive override phrase for HIGH severity
+                          (must exactly equal "I ACCEPT THE RISK")
+
+Exit codes:
+  0  clean, proceeded
+  1  moderate risk, warning shown (proceeded or declined after prompt)
+  2  high severity, blocked
+  3  high severity, overridden with --force-unsafe
+
+Examples:
+  gitshield clone https://github.com/org/repo.git
+  gitshield pull
+  gitshield scan . --history
+  alias git-safe-clone="gitshield clone"
+`)
+}
+
+// parseCommonFlags registers the shared flags on fs and returns the struct
+// they populate.
+func parseCommonFlags(fs *flag.FlagSet) *globalFlags {
+	gf := &globalFlags{}
+	fs.BoolVar(&gf.jsonOut, "json", false, "emit JSON output")
+	fs.BoolVar(&gf.yes, "yes", false, "auto-confirm MODERATE prompts")
+	fs.BoolVar(&gf.yes, "y", false, "auto-confirm MODERATE prompts (shorthand)")
+	fs.BoolVar(&gf.forceUnsafe, "force-unsafe", false, "allow overriding a HIGH-severity block")
+	fs.StringVar(&gf.confirmInput, "confirm-phrase", "", "non-interactive HIGH-override confirmation phrase")
+	fs.StringVar(&gf.configPath, "config", "", "path to config.yaml (default ~/.gitshield/config.yaml)")
+	return gf
+}

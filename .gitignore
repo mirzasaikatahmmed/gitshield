@@ -1,0 +1,4 @@
+/dist/
+/gitshield
+*.tar.gz
+*.sha256

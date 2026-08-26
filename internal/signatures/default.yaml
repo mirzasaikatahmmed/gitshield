@@ -1,0 +1,112 @@
+version: 1
+updated: "2026-08-27"
+signatures:
+  # --- Exact known-campaign IOCs (source: https://saikat.com.bd/blog/github-config-malware-prevention) ---
+  - id: campaign-id-a8-974-3
+    kind: string
+    pattern: "A8-974-3"
+    description: "Known campaign identifier string"
+    exact: true
+
+  - id: global-i-assignment
+    kind: string
+    pattern: "global.i="
+    description: "Malware runtime global assignment (global.i=)"
+    exact: true
+
+  - id: global-underscore-v
+    kind: string
+    pattern: "global._V"
+    description: "Malware runtime global assignment (global._V)"
+    exact: true
+
+  - id: global-underscore-h
+    kind: string
+    pattern: "global._H"
+    description: "Malware runtime global assignment (global._H)"
+    exact: true
+
+  - id: global-underscore-h2
+    kind: string
+    pattern: "global._H2"
+    description: "Malware runtime global assignment (global._H2)"
+    exact: true
+
+  - id: packed-footer-tgw
+    kind: string
+    pattern: "Tgw(2509);return 1358"
+    description: "Known packed/obfuscated payload footer signature"
+    exact: true
+
+  - id: packed-footer-jfd
+    kind: string
+    pattern: "jFD(LQI,pYd"
+    description: "Known packed/obfuscated payload footer signature"
+    exact: true
+
+  - id: packed-footer-ejd
+    kind: string
+    pattern: "Ejd(9255);return 4658"
+    description: "Known packed/obfuscated payload footer signature"
+    exact: true
+
+  - id: payload-marker-cls
+    kind: string
+    pattern: "/0x/cls"
+    description: "Known payload marker path"
+    exact: true
+
+  - id: payload-marker-ls
+    kind: string
+    pattern: "/0x/ls"
+    description: "Known payload marker path"
+    exact: true
+
+  - id: worm-batch-auto-push
+    kind: string
+    pattern: "temp_auto_push.bat"
+    description: "Worm propagation artifact (temp_auto_push.bat)"
+    exact: true
+
+  - id: worm-batch-interactive-push
+    kind: string
+    pattern: "temp_interactive_push.bat"
+    description: "Worm propagation artifact (temp_interactive_push.bat)"
+    exact: true
+
+  - id: c2-eth-address-known
+    kind: string
+    pattern: "0xa322E5f3D311D3080e6f0121063e9aDC2490Ef1a"
+    description: "Known C2 resolver Ethereum address for this campaign"
+    exact: true
+
+  - id: payload-header-b64
+    kind: string
+    pattern: "x-payload-b64"
+    description: "Known base64 payload transport header/marker"
+    exact: true
+
+  # --- Heuristics (fuzzy, contribute to MODERATE/HIGH via count thresholds) ---
+  - id: heuristic-long-line
+    kind: heuristic
+    heuristic: long-line
+    description: "Line exceeding ~2000 chars in a target config file (packed/obfuscated payload signal)"
+    exact: false
+
+  - id: heuristic-spawn-detached-eval
+    kind: heuristic
+    heuristic: spawn-detached-eval
+    description: "child_process spawn with detached:true combined with eval or dynamic require/import of remote content"
+    exact: false
+
+  - id: heuristic-eth-address
+    kind: heuristic
+    heuristic: eth-address
+    description: "Ethereum-address-like string (0x + 40 hex chars) in a config file with no legitimate reason to reference one"
+    exact: false
+
+  - id: heuristic-gitignore-worm-marker
+    kind: heuristic
+    heuristic: gitignore-worm-marker
+    description: ".gitignore references temp_auto_push.bat or temp_interactive_push.bat (worm self-exclusion marker)"
+    exact: false

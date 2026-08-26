@@ -1,0 +1,42 @@
+# Example ~/.gitshield/config.yaml
+# Copy to ~/.gitshield/config.yaml and edit. Every field is optional — an
+# absent file (or missing field) falls back to gitshield's shipped defaults.
+
+# Repos you explicitly trust and want gitshield to skip scanning entirely.
+# Never populated by default. Matched against the clone URL (for `clone`)
+# or the repo's `origin` remote URL / local path (for `pull`).
+allowlist: []
+# allowlist:
+#   - https://github.com/your-org/your-trusted-repo.git
+#   - /home/you/code/your-local-trusted-repo
+
+# Tune how many heuristic hits in a single file escalate MODERATE -> HIGH.
+# Any exact known-IOC match is always HIGH regardless of this setting.
+severity:
+  high_heuristic_count: 2
+
+# Additional signatures merged on top of the embedded default set, inline.
+signatures:
+  version: 1
+  updated: "2026-08-27"
+  signatures: []
+  # signatures:
+  #   - id: my-org-custom-campaign-id
+  #     kind: string
+  #     pattern: "SOME-NEW-CAMPAIGN-ID"
+  #     description: "Campaign ID reported by our SOC"
+  #     exact: true
+
+# Or point at a separate signatures file instead of/in addition to inline
+# `signatures:` above — e.g. the file written by `gitshield update-signatures`.
+# signatures_file: ~/.gitshield/signatures.yaml
+
+# Where `gitshield update-signatures` fetches the latest signature set from.
+# Both <url> and <url>.sig (a hex-encoded ed25519 signature of <url>'s
+# bytes) must be reachable; the update is refused if verification fails.
+# update_signatures_url: "https://raw.githubusercontent.com/your-org/gitshield-signatures/main/signatures.yaml"
+
+# ed25519 public key (64 hex chars) used to verify update_signatures_url.
+# Required for `gitshield update-signatures` to run at all — an
+# unauthenticated update mechanism would itself be a supply-chain risk.
+# update_signatures_pubkey: "..."
