@@ -41,10 +41,17 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          REF_NAME: ${{ github.ref_name }}
         run: |
           mkdir -p dist
           out="dist/gitshield-${GOOS}-${GOARCH}"
-          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/gitshield
+          # REF_NAME is the pushed tag (e.g. "v0.1.0") on a real release;
+          # -X main.version bakes it into the binary (v-stripped) so
+          # `gitshield version` and the update/auto-update comparisons
+          # always match the tag — nobody has to hand-bump a version
+          # constant before cutting a release.
+          version="${REF_NAME#v}"
+          go build -trimpath -ldflags="-s -w -X main.version=${version}" -o "$out" ./cmd/gitshield
           tar -C dist -czf "dist/gitshield-${GOOS}-${GOARCH}.tar.gz" "gitshield-${GOOS}-${GOARCH}"
           # Compute the checksum from inside dist/ so the recorded filename
           # in the .sha256 has no "dist/" prefix baked in — `shasum -c`

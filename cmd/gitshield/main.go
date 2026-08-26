@@ -8,9 +8,31 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 )
 
-const version = "0.1.0"
+// version identifies this build for `gitshield version` and for comparing
+// against release tags in the update/auto-update paths. It is never
+// bumped by hand:
+//   - Release binaries get it injected by release.yml's
+//     -ldflags="-X main.version=<tag, v-stripped>", set from the git tag
+//     that triggered the build — the release process is the only thing
+//     that ever sets a real version.
+//   - `go install .../gitshield@vX.Y.Z` leaves the ldflags value at its
+//     zero state ("dev"); init() then falls back to the module version Go
+//     itself records in the binary via runtime/debug.
+//   - A plain local `go build`/`go run` with neither reports "dev".
+var version = "dev"
+
+func init() {
+	if version != "dev" {
+		return
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = strings.TrimPrefix(info.Main.Version, "v")
+	}
+}
 
 func main() {
 	os.Exit(run(os.Args[1:]))
