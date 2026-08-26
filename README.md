@@ -18,14 +18,45 @@ it, and not a general dependency/lockfile supply-chain scanner.
 ## Install
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/install.sh | sh
+```
+
+Downloads the right release binary for your OS/arch, verifies its checksum,
+and installs it to `~/.local/bin/gitshield` (override with
+`GITSHIELD_INSTALL_DIR`). Or:
+
+```sh
 go install github.com/mirzasaikatahmmed/gitshield/cmd/gitshield@latest
 ```
 
-Or download a prebuilt binary from the [Releases](https://github.com/mirzasaikatahmmed/gitshield/releases)
-page (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64) and put it on
-your `PATH`. gitshield is a single static Go binary with no runtime
-dependencies of its own; it shells out to your existing `git` install to do
-the actual clone/fetch/merge.
+Or download a prebuilt binary yourself from the
+[Releases](https://github.com/mirzasaikatahmmed/gitshield/releases) page
+(linux/amd64, linux/arm64, darwin/amd64, darwin/arm64), then run
+`gitshield install` to put it on your `PATH` and set up `~/.gitshield`.
+gitshield is a single static Go binary with no runtime dependencies of its
+own; it shells out to your existing `git` install to do the actual
+clone/fetch/merge.
+
+```sh
+gitshield install [--prefix <dir>]      # copy this binary onto your PATH (default ~/.local/bin)
+gitshield update [--check] [--force]    # self-update to the latest GitHub release, in place
+gitshield uninstall [--purge]           # remove the binary (--purge also removes ~/.gitshield)
+```
+
+`gitshield update` checks the GitHub Releases API for a newer tag,
+downloads the release asset for your OS/arch, verifies it against the
+published checksum, and atomically replaces the running binary — safe to
+run from a cron job or a shell alias. `--check` only reports whether an
+update is available (useful for scripting) without installing it. This is
+separate from `gitshield update-signatures`, which only refreshes the IOC
+signature set, not the binary itself.
+
+No working gitshield binary yet? `uninstall.sh` mirrors `gitshield
+uninstall` for that case:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/uninstall.sh | sh -s -- --purge
+```
 
 ## Usage
 
