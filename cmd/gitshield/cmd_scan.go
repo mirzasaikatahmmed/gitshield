@@ -79,7 +79,7 @@ func severityExitCode(sev scanner.Severity) int {
 func scanHistory(eng *scanner.Engine, repoDir string, limit int) (scanner.Result, error) {
 	var res scanner.Result
 
-	hashes, err := git.ListCommits(repoDir, nil, limit)
+	hashes, err := git.ListCommits(repoDir, scanner.TargetPathspecs(), limit)
 	if err != nil {
 		return res, err
 	}

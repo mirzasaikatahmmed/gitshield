@@ -8,6 +8,18 @@ signatures:
     description: "Known campaign identifier string"
     exact: true
 
+  - id: campaign-id-a8-5741
+    kind: string
+    pattern: "A8-5741"
+    description: "Known campaign identifier string (variant observed in the wild, Aug 2026)"
+    exact: true
+
+  - id: campaign-id-a8-regex
+    kind: regex
+    pattern: "A8-\\d{4}-\\d"
+    description: "Campaign identifier pattern (A8-####-# family)"
+    exact: true
+
   - id: global-i-assignment
     kind: string
     pattern: "global.i="
@@ -56,10 +68,28 @@ signatures:
     description: "Known payload marker path"
     exact: true
 
+  - id: payload-marker-cl
+    kind: string
+    pattern: "/0x/cl"
+    description: "Known payload marker path (variant without trailing s)"
+    exact: true
+
   - id: payload-marker-ls
     kind: string
     pattern: "/0x/ls"
     description: "Known payload marker path"
+    exact: true
+
+  - id: payload-marker-x-payload
+    kind: string
+    pattern: "x-payload-"
+    description: "Known base64 payload transport header/marker (partial)"
+    exact: true
+
+  - id: c2-eth-address-fragment
+    kind: string
+    pattern: "6f0121063e"
+    description: "Known C2 resolver Ethereum address fragment (obfuscated payloads split this across string tables)"
     exact: true
 
   - id: worm-batch-auto-push

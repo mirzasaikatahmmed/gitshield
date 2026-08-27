@@ -71,6 +71,26 @@ func TestInfectedPostcssConfigIsModerateViaSingleHeuristic(t *testing.T) {
 	}
 }
 
+func TestInfectedPostcssObfuscatedCampaignIsHigh(t *testing.T) {
+	e := newTestEngine(t)
+	fr, err := e.ScanFile("testdata/infected/postcss.config.obfuscated.mjs")
+	if err != nil {
+		t.Fatalf("ScanFile: %v", err)
+	}
+	if fr.Severity != High {
+		t.Fatalf("expected HIGH, got %s (findings: %+v)", fr.Severity, fr.Findings)
+	}
+	foundCampaign := false
+	for _, f := range fr.Findings {
+		if f.SignatureID == "campaign-id-a8-5741" || f.SignatureID == "campaign-id-a8-regex" {
+			foundCampaign = true
+		}
+	}
+	if !foundCampaign {
+		t.Fatalf("expected campaign ID signature match, got %+v", fr.Findings)
+	}
+}
+
 func TestInfectedTailwindConfigIsHighViaTwoHeuristics(t *testing.T) {
 	e := newTestEngine(t)
 	fr, err := e.ScanFile("testdata/infected/tailwind.config.js")
@@ -112,6 +132,13 @@ func TestScanDirAggregatesWorstSeverity(t *testing.T) {
 	}
 	if len(res.Files) != 4 {
 		t.Fatalf("expected 4 files with findings, got %d: %+v", len(res.Files), res.Files)
+	}
+}
+
+func TestTargetPathspecsMatchesTargetGlobs(t *testing.T) {
+	specs := TargetPathspecs()
+	if len(specs) != len(targetGlobs) {
+		t.Fatalf("TargetPathspecs() len = %d, want %d", len(specs), len(targetGlobs))
 	}
 }
 

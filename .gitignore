@@ -2,3 +2,4 @@
 /gitshield
 *.tar.gz
 *.sha256
+graphify-out/

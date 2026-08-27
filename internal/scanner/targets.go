@@ -33,6 +33,14 @@ var targetGlobs = []string{
 	".gitignore",
 }
 
+// TargetPathspecs returns the base filenames gitshield scans, for use as
+// git log pathspecs when walking history.
+func TargetPathspecs() []string {
+	out := make([]string, len(targetGlobs))
+	copy(out, targetGlobs)
+	return out
+}
+
 // IsTargetFile reports whether path (or its base name) is one gitshield
 // scans: the known config-file classes from the campaign, plus .gitignore
 // (scanned only for the worm self-exclusion marker, not general heuristics).
