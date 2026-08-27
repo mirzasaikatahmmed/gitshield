@@ -51,6 +51,8 @@ func run(args []string) int {
 		return cmdPull(args[1:])
 	case "scan":
 		return cmdScan(args[1:])
+	case "add":
+		return cmdAdd(args[1:])
 	case "update-signatures":
 		return cmdUpdateSignatures(args[1:])
 	case "install":
@@ -79,6 +81,7 @@ Usage:
   gitshield clone <repo-url> [flags]     Scan before cloning into a new directory
   gitshield pull [flags]                 Scan the incoming ref before fast-forwarding
   gitshield scan <path> [flags]          Scan an already-cloned directory
+  gitshield add [pathspec...] [flags]    Scan target files, then git add (default: .)
   gitshield update-signatures [flags]    Fetch the latest IOC signature set
   gitshield install [flags]              Install this binary onto your PATH
   gitshield uninstall [flags]            Remove the installed binary
@@ -114,6 +117,7 @@ Exit codes:
 Examples:
   gitshield clone https://github.com/org/repo.git
   gitshield pull
+  gitshield add .
   gitshield scan . --history
   gitshield install                      # copy this binary onto your PATH (~/.local/bin)
   gitshield update --check               # see if a newer release exists
