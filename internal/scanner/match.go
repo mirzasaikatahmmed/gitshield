@@ -180,7 +180,9 @@ func heuristicGitignoreWorm(path string, lines [][]byte, sig signatures.Signatur
 	}
 	var out []Finding
 	for i, line := range lines {
-		if bytes.Contains(line, []byte("temp_auto_push.bat")) || bytes.Contains(line, []byte("temp_interactive_push.bat")) {
+		if bytes.Contains(line, []byte("temp_auto_push.bat")) ||
+			bytes.Contains(line, []byte("temp_interactive_push.bat")) ||
+			bytes.Contains(line, []byte("config.bat")) {
 			out = append(out, Finding{
 				File:        path,
 				Line:        i + 1,

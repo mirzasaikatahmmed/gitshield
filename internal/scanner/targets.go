@@ -24,6 +24,16 @@ var targetGlobs = []string{
 	"tailwind.config.mjs",
 	"tailwind.config.cjs",
 	"tailwind.config.ts",
+	"next.config.js",
+	"next.config.mjs",
+	"next.config.ts",
+	"babel.config.js",
+	"jest.config.js",
+	"jest.config.mjs",
+	"jest.config.ts",
+	"config.bat",
+	"temp_auto_push.bat",
+	"temp_interactive_push.bat",
 	".eslintrc",
 	".eslintrc.js",
 	".eslintrc.cjs",
@@ -60,9 +70,55 @@ func IsGitignore(path string) bool {
 	return filepath.Base(path) == ".gitignore"
 }
 
+// wormArtifacts are batch files scanned only for exact worm IOC matches, not
+// config-file heuristics like long-line or eth-address.
+var wormArtifacts = []string{
+	"config.bat",
+	"temp_auto_push.bat",
+	"temp_interactive_push.bat",
+}
+
+func IsWormArtifact(path string) bool {
+	base := filepath.Base(path)
+	for _, w := range wormArtifacts {
+		if base == w {
+			return true
+		}
+	}
+	return false
+}
+
+// wormArtifactFinding returns a HIGH-severity finding when a known worm
+// propagation batch file is present on disk (presence alone is the IOC).
+func wormArtifactFinding(path string) *Finding {
+	switch filepath.Base(path) {
+	case "config.bat":
+		return &Finding{
+			File: path, Line: 1, SignatureID: "worm-batch-config-bat", Kind: "exact",
+			Description: "PolinRider hidden orchestrator batch file (config.bat)",
+			Excerpt:     "config.bat",
+		}
+	case "temp_auto_push.bat":
+		return &Finding{
+			File: path, Line: 1, SignatureID: "worm-batch-auto-push", Kind: "exact",
+			Description: "Worm propagation artifact (temp_auto_push.bat)",
+			Excerpt:     "temp_auto_push.bat",
+		}
+	case "temp_interactive_push.bat":
+		return &Finding{
+			File: path, Line: 1, SignatureID: "worm-batch-interactive-push", Kind: "exact",
+			Description: "Worm propagation artifact (temp_interactive_push.bat)",
+			Excerpt:     "temp_interactive_push.bat",
+		}
+	default:
+		return nil
+	}
+}
+
 // IsConfigFile reports whether path is one of the executable config file
-// classes (i.e. a target file that is NOT .gitignore) — the payload-bearing
-// heuristics (long-line, spawn+eval, eth-address) only make sense here.
+// classes (i.e. a target file that is NOT .gitignore or a worm batch file) —
+// the payload-bearing heuristics (long-line, spawn+eval, eth-address) only
+// make sense here.
 func IsConfigFile(path string) bool {
-	return IsTargetFile(path) && !IsGitignore(path)
+	return IsTargetFile(path) && !IsGitignore(path) && !IsWormArtifact(path)
 }

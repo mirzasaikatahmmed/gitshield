@@ -87,6 +87,10 @@ func NewEngine(sigs signatures.Set) *Engine {
 // ScanBytes scans in-memory file content against all configured signatures
 // and heuristics, returning findings ordered by line number.
 func (e *Engine) ScanBytes(path string, content []byte) []Finding {
+	if f := wormArtifactFinding(path); f != nil {
+		return []Finding{*f}
+	}
+
 	var findings []Finding
 
 	lines := splitLines(content)

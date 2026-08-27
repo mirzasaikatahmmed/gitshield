@@ -20,6 +20,25 @@ signatures:
     description: "Campaign identifier pattern (A8-####-# family)"
     exact: true
 
+  # --- PolinRider campaign (source: https://github.com/OpenSourceMalware/PolinRider) ---
+  - id: polinrider-primary-sig
+    kind: string
+    pattern: '("rmcej%otb%",2857687)'
+    description: "PolinRider packed payload primary signature"
+    exact: true
+
+  - id: polinrider-secondary-sig
+    kind: string
+    pattern: "global['!']='8-270-2'"
+    description: "PolinRider campaign identifier assignment (global['!']='8-270-2')"
+    exact: true
+
+  - id: polinrider-campaign-id
+    kind: string
+    pattern: "8-270-2"
+    description: "PolinRider campaign identifier string"
+    exact: true
+
   - id: global-i-assignment
     kind: string
     pattern: "global.i="
@@ -104,6 +123,12 @@ signatures:
     description: "Worm propagation artifact (temp_interactive_push.bat)"
     exact: true
 
+  - id: worm-batch-config-bat
+    kind: string
+    pattern: "config.bat"
+    description: "PolinRider hidden orchestrator batch file (config.bat)"
+    exact: true
+
   - id: c2-eth-address-known
     kind: string
     pattern: "0xa322E5f3D311D3080e6f0121063e9aDC2490Ef1a"
@@ -138,5 +163,5 @@ signatures:
   - id: heuristic-gitignore-worm-marker
     kind: heuristic
     heuristic: gitignore-worm-marker
-    description: ".gitignore references temp_auto_push.bat or temp_interactive_push.bat (worm self-exclusion marker)"
+    description: ".gitignore references worm self-exclusion batch files (temp_auto_push.bat, temp_interactive_push.bat, config.bat)"
     exact: false

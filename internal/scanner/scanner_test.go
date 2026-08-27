@@ -121,6 +121,28 @@ func TestInfectedGitignoreWormMarkerIsHigh(t *testing.T) {
 	}
 }
 
+func TestInfectedPolinRiderNextConfigIsHigh(t *testing.T) {
+	e := newTestEngine(t)
+	fr, err := e.ScanFile("testdata/infected/next.config.mjs")
+	if err != nil {
+		t.Fatalf("ScanFile: %v", err)
+	}
+	if fr.Severity != High {
+		t.Fatalf("expected HIGH, got %s (findings: %+v)", fr.Severity, fr.Findings)
+	}
+}
+
+func TestInfectedConfigBatIsHigh(t *testing.T) {
+	e := newTestEngine(t)
+	fr, err := e.ScanFile("testdata/infected/config.bat")
+	if err != nil {
+		t.Fatalf("ScanFile: %v", err)
+	}
+	if fr.Severity != High {
+		t.Fatalf("expected HIGH, got %s (findings: %+v)", fr.Severity, fr.Findings)
+	}
+}
+
 func TestScanDirAggregatesWorstSeverity(t *testing.T) {
 	e := newTestEngine(t)
 	res, err := e.ScanDir("testdata/infected")
@@ -130,8 +152,8 @@ func TestScanDirAggregatesWorstSeverity(t *testing.T) {
 	if res.Severity != High {
 		t.Fatalf("expected overall HIGH, got %s", res.Severity)
 	}
-	if len(res.Files) != 4 {
-		t.Fatalf("expected 4 files with findings, got %d: %+v", len(res.Files), res.Files)
+	if len(res.Files) != 6 {
+		t.Fatalf("expected 6 files with findings, got %d: %+v", len(res.Files), res.Files)
 	}
 }
 
