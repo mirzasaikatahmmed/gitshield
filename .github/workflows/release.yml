@@ -73,6 +73,7 @@ jobs:
           name: gitshield-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
             dist/*.tar.gz
+            dist/*.zip
             dist/*.sha256
 
   release:
