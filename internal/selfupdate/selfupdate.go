@@ -2,11 +2,12 @@
 // checking the GitHub Releases API for a newer tagged build, downloading
 // the release asset matching the running OS/arch, and verifying it against
 // the checksum file the release workflow publishes alongside it
-// (gitshield-<goos>-<goarch>.tar.gz + .tar.gz.sha256).
+// (gitshield-<goos>-<goarch>.tar.gz or .zip + matching .sha256).
 package selfupdate
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
@@ -18,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mirzasaikatahmmed/gitshield/internal/platform"
 )
 
 // DefaultRepo is the GitHub "owner/repo" gitshield checks by default.
@@ -76,26 +79,26 @@ func FetchLatest(repo string) (Release, error) {
 	return rel, nil
 }
 
-// FindAssets locates the release tarball and its detached checksum file for
+// FindAssets locates the release archive and its detached checksum file for
 // the given goos/goarch, matching the naming the release workflow publishes.
-func FindAssets(rel Release, goos, goarch string) (tarball, checksum Asset, err error) {
-	wantTar := fmt.Sprintf("gitshield-%s-%s.tar.gz", goos, goarch)
-	wantSum := wantTar + ".sha256"
+func FindAssets(rel Release, goos, goarch string) (archive, checksum Asset, err error) {
+	wantArchive := platform.ReleaseArchiveName(goos, goarch)
+	wantSum := wantArchive + ".sha256"
 	for _, a := range rel.Assets {
 		switch a.Name {
-		case wantTar:
-			tarball = a
+		case wantArchive:
+			archive = a
 		case wantSum:
 			checksum = a
 		}
 	}
-	if tarball.URL == "" {
-		return Asset{}, Asset{}, fmt.Errorf("release %s has no asset %q", rel.TagName, wantTar)
+	if archive.URL == "" {
+		return Asset{}, Asset{}, fmt.Errorf("release %s has no asset %q", rel.TagName, wantArchive)
 	}
 	if checksum.URL == "" {
 		return Asset{}, Asset{}, fmt.Errorf("release %s has no checksum asset %q", rel.TagName, wantSum)
 	}
-	return tarball, checksum, nil
+	return archive, checksum, nil
 }
 
 // Download fetches url and returns its body, capped at maxBytes.
@@ -139,9 +142,16 @@ func VerifyChecksum(data []byte, checksumFile []byte, wantName string) error {
 	return fmt.Errorf("checksum file has no entry for %s", wantName)
 }
 
-// ExtractFile reads a gzip-compressed tar archive and returns the contents
-// of the entry named wantName.
-func ExtractFile(tarGz []byte, wantName string) ([]byte, error) {
+// ExtractBinary returns the release executable bytes from archiveData.
+// Unix releases ship as .tar.gz; Windows releases ship as .zip.
+func ExtractBinary(archiveData []byte, goos, wantName string) ([]byte, error) {
+	if goos == "windows" {
+		return extractZipFile(archiveData, wantName)
+	}
+	return extractTarGzFile(archiveData, wantName)
+}
+
+func extractTarGzFile(tarGz []byte, wantName string) ([]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(tarGz))
 	if err != nil {
 		return nil, fmt.Errorf("opening gzip archive: %w", err)
@@ -163,6 +173,32 @@ func ExtractFile(tarGz []byte, wantName string) ([]byte, error) {
 		if hdr.Name == wantName {
 			return io.ReadAll(tr)
 		}
+	}
+	return nil, fmt.Errorf("archive has no entry named %s", wantName)
+}
+
+func extractZipFile(zipData []byte, wantName string) ([]byte, error) {
+	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		return nil, fmt.Errorf("opening zip archive: %w", err)
+	}
+	for _, f := range zr.File {
+		if f.Name != wantName {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, fmt.Errorf("opening zip entry %s: %w", wantName, err)
+		}
+		data, readErr := io.ReadAll(rc)
+		closeErr := rc.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if closeErr != nil {
+			return nil, closeErr
+		}
+		return data, nil
 	}
 	return nil, fmt.Errorf("archive has no entry named %s", wantName)
 }

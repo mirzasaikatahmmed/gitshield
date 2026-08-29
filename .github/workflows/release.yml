@@ -23,6 +23,10 @@ jobs:
             goarch: amd64
           - goos: darwin
             goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +48,11 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: |
           mkdir -p dist
-          out="dist/gitshield-${GOOS}-${GOARCH}"
+          if [ "$GOOS" = "windows" ]; then
+            out="dist/gitshield-${GOOS}-${GOARCH}.exe"
+          else
+            out="dist/gitshield-${GOOS}-${GOARCH}"
+          fi
           # REF_NAME is the pushed tag (e.g. "v0.1.0") on a real release;
           # -X main.version bakes it into the binary (v-stripped) so
           # `gitshield version` and the update/auto-update comparisons
@@ -52,13 +60,13 @@ jobs:
           # constant before cutting a release.
           version="${REF_NAME#v}"
           go build -trimpath -ldflags="-s -w -X main.version=${version}" -o "$out" ./cmd/gitshield
-          tar -C dist -czf "dist/gitshield-${GOOS}-${GOARCH}.tar.gz" "gitshield-${GOOS}-${GOARCH}"
-          # Compute the checksum from inside dist/ so the recorded filename
-          # in the .sha256 has no "dist/" prefix baked in — `shasum -c`
-          # resolves that filename relative to its own working directory,
-          # which is a flat download dir (no dist/ subfolder) for every
-          # consumer: install.sh, `gitshield update`, and manual downloads.
-          (cd dist && shasum -a 256 "gitshield-${GOOS}-${GOARCH}.tar.gz" > "gitshield-${GOOS}-${GOARCH}.tar.gz.sha256")
+          if [ "$GOOS" = "windows" ]; then
+            (cd dist && zip "gitshield-${GOOS}-${GOARCH}.zip" "gitshield-${GOOS}-${GOARCH}.exe")
+            (cd dist && shasum -a 256 "gitshield-${GOOS}-${GOARCH}.zip" > "gitshield-${GOOS}-${GOARCH}.zip.sha256")
+          else
+            tar -C dist -czf "dist/gitshield-${GOOS}-${GOARCH}.tar.gz" "gitshield-${GOOS}-${GOARCH}"
+            (cd dist && shasum -a 256 "gitshield-${GOOS}-${GOARCH}.tar.gz" > "gitshield-${GOOS}-${GOARCH}.tar.gz.sha256")
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

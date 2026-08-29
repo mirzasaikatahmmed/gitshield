@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/mirzasaikatahmmed/gitshield/internal/platform"
 	"github.com/mirzasaikatahmmed/gitshield/internal/selfupdate"
 )
 
@@ -91,7 +92,7 @@ func fetchVerifiedBinary(rel selfupdate.Release) ([]byte, error) {
 	}
 
 	const maxBinaryBytes = 200 * 1024 * 1024
-	tarData, err := selfupdate.Download(tarAsset.URL, maxBinaryBytes)
+	archiveData, err := selfupdate.Download(tarAsset.URL, maxBinaryBytes)
 	if err != nil {
 		return nil, fmt.Errorf("downloading %s: %w", tarAsset.Name, err)
 	}
@@ -99,12 +100,12 @@ func fetchVerifiedBinary(rel selfupdate.Release) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("downloading %s: %w", sumAsset.Name, err)
 	}
-	if err := selfupdate.VerifyChecksum(tarData, sumData, tarAsset.Name); err != nil {
+	if err := selfupdate.VerifyChecksum(archiveData, sumData, tarAsset.Name); err != nil {
 		return nil, fmt.Errorf("CHECKSUM VERIFICATION FAILED — refusing to install: %w", err)
 	}
 
-	binName := fmt.Sprintf("gitshield-%s-%s", runtime.GOOS, runtime.GOARCH)
-	binData, err := selfupdate.ExtractFile(tarData, binName)
+	binName := platform.ReleaseBinaryName(runtime.GOOS, runtime.GOARCH)
+	binData, err := selfupdate.ExtractBinary(archiveData, runtime.GOOS, binName)
 	if err != nil {
 		return nil, fmt.Errorf("extracting release archive: %w", err)
 	}

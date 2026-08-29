@@ -2,6 +2,7 @@ package selfupdate
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
@@ -52,6 +53,17 @@ func TestFindAssets(t *testing.T) {
 	if _, _, err := FindAssets(rel, "windows", "amd64"); err == nil {
 		t.Fatalf("expected error for missing platform")
 	}
+
+	relWin := Release{
+		TagName: "v0.2.0",
+		Assets: []Asset{
+			{Name: "gitshield-windows-amd64.zip", URL: "https://example/windows-amd64.zip"},
+			{Name: "gitshield-windows-amd64.zip.sha256", URL: "https://example/windows-amd64.zip.sha256"},
+		},
+	}
+	if _, _, err := FindAssets(relWin, "windows", "amd64"); err != nil {
+		t.Fatalf("FindAssets windows: %v", err)
+	}
 }
 
 func TestVerifyChecksum(t *testing.T) {
@@ -73,7 +85,7 @@ func TestVerifyChecksum(t *testing.T) {
 	}
 }
 
-func TestExtractFile(t *testing.T) {
+func TestExtractBinary(t *testing.T) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
@@ -87,15 +99,39 @@ func TestExtractFile(t *testing.T) {
 	tw.Close()
 	gz.Close()
 
-	got, err := ExtractFile(buf.Bytes(), "gitshield-linux-amd64")
+	got, err := ExtractBinary(buf.Bytes(), "linux", "gitshield-linux-amd64")
 	if err != nil {
-		t.Fatalf("ExtractFile: %v", err)
+		t.Fatalf("ExtractBinary: %v", err)
 	}
 	if string(got) != string(content) {
-		t.Fatalf("ExtractFile content mismatch: got %q, want %q", got, content)
+		t.Fatalf("ExtractBinary content mismatch: got %q, want %q", got, content)
 	}
 
-	if _, err := ExtractFile(buf.Bytes(), "does-not-exist"); err == nil {
+	if _, err := ExtractBinary(buf.Bytes(), "linux", "does-not-exist"); err == nil {
 		t.Fatalf("expected error for missing entry")
+	}
+}
+
+func TestExtractBinaryZip(t *testing.T) {
+	content := []byte("fake windows binary")
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("gitshield-windows-amd64.exe")
+	if err != nil {
+		t.Fatalf("creating zip entry: %v", err)
+	}
+	if _, err := w.Write(content); err != nil {
+		t.Fatalf("writing zip entry: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("closing zip: %v", err)
+	}
+
+	got, err := ExtractBinary(buf.Bytes(), "windows", "gitshield-windows-amd64.exe")
+	if err != nil {
+		t.Fatalf("ExtractBinary zip: %v", err)
+	}
+	if string(got) != string(content) {
+		t.Fatalf("ExtractBinary zip content mismatch: got %q, want %q", got, content)
 	}
 }

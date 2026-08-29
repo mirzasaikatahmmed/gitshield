@@ -17,13 +17,27 @@ it, and not a general dependency/lockfile supply-chain scanner.
 
 ## Install
 
+### Linux / macOS
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/install.sh | sh
 ```
 
-Downloads the right release binary for your OS/arch, verifies its checksum,
-and installs it to `~/.local/bin/gitshield` (override with
-`GITSHIELD_INSTALL_DIR`). Or:
+### Windows
+
+```powershell
+irm https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/install.ps1 | iex
+```
+
+Downloads the latest release binary when one exists for your architecture. If no
+Windows release is published yet, the installer bootstraps a local Go toolchain
+under `%USERPROFILE%\.local\go` (when Go is not already installed) and builds
+from source with `go install`. On Windows you also need [Git for Windows](https://git-scm.com/download/win)
+on your `PATH` for `clone`/`pull`.
+
+Both installers download the right release binary for your OS/arch, verify its checksum,
+and install it to `~/.local/bin` (override with `GITSHIELD_INSTALL_DIR` /
+`$env:GITSHIELD_INSTALL_DIR`). On Windows the binary is `gitshield.exe`. Or:
 
 ```sh
 go install github.com/mirzasaikatahmmed/gitshield/cmd/gitshield@latest
@@ -31,8 +45,9 @@ go install github.com/mirzasaikatahmmed/gitshield/cmd/gitshield@latest
 
 Or download a prebuilt binary yourself from the
 [Releases](https://github.com/mirzasaikatahmmed/gitshield/releases) page
-(linux/amd64, linux/arm64, darwin/amd64, darwin/arm64), then run
-`gitshield install` to put it on your `PATH` and set up `~/.gitshield`.
+(linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
+windows/arm64), then run `gitshield install` to put it on your `PATH` and set up
+`~/.gitshield`.
 gitshield is a single static Go binary with no runtime dependencies of its
 own; it shells out to your existing `git` install to do the actual
 clone/fetch/merge.
@@ -51,11 +66,17 @@ update is available (useful for scripting) without installing it. This is
 separate from `gitshield update-signatures`, which only refreshes the IOC
 signature set, not the binary itself.
 
-No working gitshield binary yet? `uninstall.sh` mirrors `gitshield
-uninstall` for that case:
+No working gitshield binary yet? `uninstall.sh` / `uninstall.ps1` mirror
+`gitshield uninstall` for that case:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/uninstall.sh | sh -s -- --purge
+```
+
+```powershell
+irm https://raw.githubusercontent.com/mirzasaikatahmmed/gitshield/main/uninstall.ps1 | iex
+# or, to also remove ~/.gitshield:
+# powershell -ExecutionPolicy Bypass -File uninstall.ps1 -Purge
 ```
 
 ## Usage

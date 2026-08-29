@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mirzasaikatahmmed/gitshield/internal/config"
+	"github.com/mirzasaikatahmmed/gitshield/internal/platform"
 )
 
 // defaultInstallDir returns ~/.local/bin, the conventional user-writable
@@ -40,7 +41,7 @@ func cmdInstall(args []string) int {
 		fmt.Fprintln(os.Stderr, "gitshield: creating", *prefix+":", err)
 		return 2
 	}
-	dest := filepath.Join(*prefix, "gitshield")
+	dest := filepath.Join(*prefix, platform.InstalledName())
 
 	if sameFile(src, dest) {
 		if !gf.jsonOut {
@@ -128,9 +129,9 @@ func cmdUninstall(args []string) int {
 
 	candidates := []string{}
 	if *prefix != "" {
-		candidates = append(candidates, filepath.Join(*prefix, "gitshield"))
+		candidates = append(candidates, filepath.Join(*prefix, platform.InstalledName()))
 	} else {
-		candidates = append(candidates, filepath.Join(defaultInstallDir(), "gitshield"), "/usr/local/bin/gitshield")
+		candidates = append(candidates, filepath.Join(defaultInstallDir(), platform.InstalledName()), filepath.Join("/usr/local/bin", platform.InstalledName()))
 		if exe, err := runningExecutablePath(); err == nil {
 			candidates = append(candidates, exe)
 		}
