@@ -97,6 +97,9 @@ Common flags:
   --confirm-phrase <s>    Non-interactive override phrase for HIGH severity
                           (must exactly equal "I ACCEPT THE RISK")
   --no-auto-update        Skip this run's background auto-update check (see below)
+  --deep                  Also scan arbitrary top-level *.js/*.mjs/*.cjs files
+                          (not just known config filenames) with the same
+                          heuristics. Off by default; slower, broader coverage.
 
 Auto-update:
   clone/pull/scan check at most once every 24h (silent, best-effort, never
@@ -137,5 +140,6 @@ func parseCommonFlags(fs *flag.FlagSet) *globalFlags {
 	fs.StringVar(&gf.confirmInput, "confirm-phrase", "", "non-interactive HIGH-override confirmation phrase")
 	fs.StringVar(&gf.configPath, "config", "", "path to config.yaml (default ~/.gitshield/config.yaml)")
 	fs.BoolVar(&gf.noAutoUpdate, "no-auto-update", false, "skip the background auto-update check for this run")
+	fs.BoolVar(&gf.deep, "deep", false, "also scan arbitrary top-level *.js/*.mjs/*.cjs files (not just known config filenames) with the same heuristics")
 	return gf
 }

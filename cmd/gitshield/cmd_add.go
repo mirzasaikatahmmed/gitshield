@@ -94,7 +94,7 @@ func cmdAdd(args []string) int {
 func scanStagedCandidates(eng *scanner.Engine, repoDir string, paths []string) (scanner.Result, error) {
 	var res scanner.Result
 	for _, rel := range paths {
-		if !scanner.IsTargetFile(rel) {
+		if !scanner.IsScanTarget(rel, eng.Deep) {
 			continue
 		}
 		full := filepath.Join(repoDir, rel)

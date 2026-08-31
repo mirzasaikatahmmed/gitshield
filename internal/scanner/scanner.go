@@ -78,6 +78,11 @@ func DefaultThresholds() Thresholds {
 type Engine struct {
 	Sigs       signatures.Set
 	Thresholds Thresholds
+	// Deep enables the --deep mode: also scan arbitrary top-level
+	// *.js/*.mjs/*.cjs files (not just the known config filenames) with
+	// the same heuristic set. Off by default so existing behavior doesn't
+	// change for existing users.
+	Deep bool
 }
 
 func NewEngine(sigs signatures.Set) *Engine {
@@ -103,7 +108,7 @@ func (e *Engine) ScanBytes(path string, content []byte) []Finding {
 		case signatures.KindRegex:
 			findings = append(findings, matchRegex(path, lines, sig)...)
 		case signatures.KindHeuristic:
-			findings = append(findings, runHeuristic(path, lines, text, sig)...)
+			findings = append(findings, runHeuristic(path, lines, text, sig, e.Deep)...)
 		}
 	}
 
@@ -152,9 +157,10 @@ func (e *Engine) ScanFile(path string) (FileResult, error) {
 	}, nil
 }
 
-// ScanDir walks root, scanning every file that IsTargetFile matches.
-// Directories named .git are skipped (git history is scanned separately
-// via the --history flag / ScanGitHistory in internal/git).
+// ScanDir walks root, scanning every file that IsScanTarget matches (the
+// fixed target filenames, plus top-level *.js/*.mjs/*.cjs files when
+// e.Deep is set). Directories named .git are skipped (git history is
+// scanned separately via the --history flag / ScanGitHistory in internal/git).
 func (e *Engine) ScanDir(root string) (Result, error) {
 	var res Result
 
@@ -172,22 +178,28 @@ func (e *Engine) ScanDir(root string) (Result, error) {
 		if relErr != nil {
 			rel = path
 		}
-		if !IsTargetFile(rel) {
+		if !IsScanTarget(rel, e.Deep) {
 			return nil
 		}
-		fr, scanErr := e.ScanFile(path)
-		if scanErr != nil {
+		// Scan using rel (the path relative to root), not the walked OS
+		// path: path-scoped heuristics like IsDeepTargetFile's top-level
+		// check need to reason about the file's position within the
+		// scanned tree, not wherever that tree happens to sit on disk
+		// (e.g. a quarantine temp dir).
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
 			// Unreadable file (permissions, broken symlink, etc.) — skip
 			// rather than aborting the whole scan.
 			return nil
 		}
-		fr.Path = rel
+		findings := e.ScanBytes(rel, content)
+		sev := e.Severity(findings)
 		res.FilesScanned++
-		if len(fr.Findings) > 0 {
-			res.Files = append(res.Files, fr)
+		if len(findings) > 0 {
+			res.Files = append(res.Files, FileResult{Path: rel, Findings: findings, Severity: sev})
 		}
-		if fr.Severity > res.Severity {
-			res.Severity = fr.Severity
+		if sev > res.Severity {
+			res.Severity = sev
 		}
 		return nil
 	})

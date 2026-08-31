@@ -152,8 +152,8 @@ func TestScanDirAggregatesWorstSeverity(t *testing.T) {
 	if res.Severity != High {
 		t.Fatalf("expected overall HIGH, got %s", res.Severity)
 	}
-	if len(res.Files) != 6 {
-		t.Fatalf("expected 6 files with findings, got %d: %+v", len(res.Files), res.Files)
+	if len(res.Files) != 7 {
+		t.Fatalf("expected 7 files with findings, got %d: %+v", len(res.Files), res.Files)
 	}
 }
 
@@ -171,13 +171,155 @@ func TestIsTargetFile(t *testing.T) {
 		".eslintrc":              true,
 		".eslintrc.json":         true,
 		".gitignore":             true,
-		"package.json":           false,
+		"package.json":           true,
+		"a/b/package.json":       true,
 		"webpack.config.js":      false,
 		"README.md":              false,
 	}
 	for path, want := range cases {
 		if got := IsTargetFile(path); got != want {
 			t.Errorf("IsTargetFile(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestIsDeepTargetFile(t *testing.T) {
+	cases := map[string]bool{
+		"server-init.js":     true,
+		"foo.mjs":            true,
+		"foo.cjs":            true,
+		"eslint.config.js":   true, // already a known target too; deep doesn't need to exclude it
+		"sub/nested-evil.js": false,
+		"foo.ts":             false,
+		"package.json":       false,
+	}
+	for path, want := range cases {
+		if got := IsDeepTargetFile(path); got != want {
+			t.Errorf("IsDeepTargetFile(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestNonDeepScanDirExcludesArbitraryJSFile(t *testing.T) {
+	e := newTestEngine(t)
+	res, err := e.ScanDir("testdata/infected")
+	if err != nil {
+		t.Fatalf("ScanDir: %v", err)
+	}
+	for _, fr := range res.Files {
+		if fr.Path == "server-init.js" {
+			t.Fatalf("non-deep scan should not have scanned server-init.js, got %+v", fr)
+		}
+	}
+}
+
+func TestDeepScanDirIncludesArbitraryJSFile(t *testing.T) {
+	e := newTestEngine(t)
+	e.Deep = true
+	res, err := e.ScanDir("testdata/infected")
+	if err != nil {
+		t.Fatalf("ScanDir: %v", err)
+	}
+	var found *FileResult
+	for i := range res.Files {
+		if res.Files[i].Path == "server-init.js" {
+			found = &res.Files[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected --deep scan to include server-init.js, got %+v", res.Files)
+	}
+	if found.Severity != Moderate {
+		t.Fatalf("expected server-init.js to be MODERATE (single heuristic), got %s: %+v", found.Severity, found.Findings)
+	}
+	if len(found.Findings) != 1 || found.Findings[0].SignatureID != "heuristic-spawn-detached-eval" {
+		t.Fatalf("expected exactly 1 spawn-detached-eval finding, got %+v", found.Findings)
+	}
+}
+
+func TestDeepScanDirDoesNotAffectCleanJSFile(t *testing.T) {
+	e := newTestEngine(t)
+	e.Deep = true
+	res, err := e.ScanDir("testdata/clean")
+	if err != nil {
+		t.Fatalf("ScanDir: %v", err)
+	}
+	if res.Severity != Clean {
+		t.Fatalf("expected CLEAN even with --deep, got %s: %+v", res.Severity, res.Files)
+	}
+}
+
+func TestInfectedPackageJSONPostinstallWormIsHigh(t *testing.T) {
+	e := newTestEngine(t)
+	fr, err := e.ScanFile("testdata/infected/package.json")
+	if err != nil {
+		t.Fatalf("ScanFile: %v", err)
+	}
+	if fr.Severity != High {
+		t.Fatalf("expected HIGH, got %s (findings: %+v)", fr.Severity, fr.Findings)
+	}
+	ids := map[string]bool{}
+	for _, f := range fr.Findings {
+		if f.Kind == "exact" {
+			t.Fatalf("expected only heuristic matches, got %+v", f)
+		}
+		ids[f.SignatureID] = true
+	}
+	if !ids["heuristic-postinstall-curl-pipe-shell"] {
+		t.Fatalf("expected curl-pipe-shell finding, got %+v", fr.Findings)
+	}
+	if !ids["heuristic-postinstall-powershell-cradle"] {
+		t.Fatalf("expected powershell-cradle finding, got %+v", fr.Findings)
+	}
+}
+
+func TestCleanPackageJSONHasNoPostinstallFindings(t *testing.T) {
+	e := newTestEngine(t)
+	fr, err := e.ScanFile("testdata/clean/package.json")
+	if err != nil {
+		t.Fatalf("ScanFile: %v", err)
+	}
+	if fr.Severity != Clean {
+		t.Fatalf("expected CLEAN, got %s (findings: %+v)", fr.Severity, fr.Findings)
+	}
+}
+
+func TestPostinstallBase64PipeShellHeuristic(t *testing.T) {
+	e := newTestEngine(t)
+	content := []byte(`{
+  "scripts": {
+    "install": "echo bWFsaWNpb3Vz | base64 -d | bash"
+  }
+}
+`)
+	findings := e.ScanBytes("package.json", content)
+	found := false
+	for _, f := range findings {
+		if f.SignatureID == "heuristic-postinstall-base64-shell" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected heuristic-postinstall-base64-shell finding, got %+v", findings)
+	}
+	sev := e.Severity(findings)
+	if sev != Moderate {
+		t.Fatalf("expected MODERATE (single heuristic hit), got %s: %+v", sev, findings)
+	}
+}
+
+func TestPostinstallHeuristicsIgnoreNonLifecycleScripts(t *testing.T) {
+	e := newTestEngine(t)
+	content := []byte(`{
+  "scripts": {
+    "test": "curl -fsSL https://example.test/report.sh | bash"
+  }
+}
+`)
+	findings := e.ScanBytes("package.json", content)
+	for _, f := range findings {
+		if f.SignatureID == "heuristic-postinstall-curl-pipe-shell" {
+			t.Fatalf("non-auto-run script should not trigger the postinstall heuristic, got %+v", f)
 		}
 	}
 }

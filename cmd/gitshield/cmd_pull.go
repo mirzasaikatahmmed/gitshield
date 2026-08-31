@@ -110,7 +110,7 @@ func scanRef(eng *scanner.Engine, repoDir, ref string) (scanner.Result, error) {
 		return res, err
 	}
 	for _, p := range paths {
-		if !scanner.IsTargetFile(p) {
+		if !scanner.IsScanTarget(p, eng.Deep) {
 			continue
 		}
 		content, err := git.ShowBlob(repoDir, ref, p)

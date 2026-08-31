@@ -67,6 +67,7 @@ type globalFlags struct {
 	confirmInput string // pre-supplied confirmation phrase, for non-interactive override
 	configPath   string
 	noAutoUpdate bool // skip the background auto-update check for this invocation
+	deep         bool // also scan arbitrary top-level *.js/*.mjs/*.cjs files with the same heuristics
 }
 
 func loadEngine(gf globalFlags) (*scanner.Engine, config.Config, error) {
@@ -90,6 +91,7 @@ func loadEngine(gf globalFlags) (*scanner.Engine, config.Config, error) {
 	if cfg.Severity.HighHeuristicCount > 0 {
 		eng.Thresholds.HighHeuristicCount = cfg.Severity.HighHeuristicCount
 	}
+	eng.Deep = gf.deep
 	return eng, cfg, nil
 }
 

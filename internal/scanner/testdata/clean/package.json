@@ -1,0 +1,9 @@
+{
+  "name": "demo-clean-pkg",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "node ./scripts/postinstall.js",
+    "test": "jest",
+    "build": "tsc -p ."
+  }
+}

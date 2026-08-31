@@ -93,7 +93,7 @@ func scanHistory(eng *scanner.Engine, repoDir string, limit int) (scanner.Result
 			continue // commit may be unreachable/corrupt; skip rather than abort
 		}
 		for _, p := range paths {
-			if !scanner.IsTargetFile(p) {
+			if !scanner.IsScanTarget(p, eng.Deep) {
 				continue
 			}
 			content, err := git.ShowBlob(repoDir, hash, p)

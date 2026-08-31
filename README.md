@@ -98,6 +98,10 @@ gitshield scan . --history
 
 # CI-friendly JSON output
 gitshield scan . --json
+
+# Also scan arbitrary top-level *.js/*.mjs/*.cjs files (not just the known
+# config filenames) with the same heuristics — slower, broader coverage
+gitshield scan . --deep
 ```
 
 Drop-in alias for muscle memory:
@@ -157,11 +161,25 @@ the campaign writeup:
   with `eval`/a dynamic `require`/`import` of remote content, an
   Ethereum-address-shaped string in a file with no legitimate reason to
   have one, and a `.gitignore` referencing the worm's batch files.
+- npm-postinstall-worm heuristics (`package.json`, scanned by default):
+  an auto-run lifecycle script (`preinstall`/`install`/`postinstall`/`prepare`)
+  that pipes a `curl`/`wget` download straight into a shell, a PowerShell
+  download-cradle (`iwr`/`irm` piped into `iex`), or a base64-decoded blob
+  piped into a shell — all scoped to the lifecycle hooks npm runs on its
+  own, not `test`/`build`/etc.
 
 Any exact match, or 2+ heuristic hits in the same file, is HIGH. Exactly
 one heuristic hit is MODERATE. See `internal/signatures/default.yaml` for
 the full set and `internal/scanner/match.go` for how heuristics are
 implemented.
+
+By default gitshield only scans the known config filenames above (plus
+`package.json`) — this keeps scans fast and predictable. Pass `--deep` to
+`scan`/`clone`/`pull`/`add` to additionally scan any top-level
+`*.js`/`*.mjs`/`*.cjs` file with the same config-file heuristics
+(long-line, spawn+eval, eth-address). It's opt-in and off by default so
+existing behavior doesn't change; it's restricted to top-level files (not
+recursive into `node_modules` etc.) to keep it fast.
 
 ## Configuration
 

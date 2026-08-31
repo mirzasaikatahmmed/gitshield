@@ -23,6 +23,13 @@ const (
 	HeuristicSpawnEval     = "spawn-detached-eval"
 	HeuristicEthAddress    = "eth-address"
 	HeuristicGitignoreWorm = "gitignore-worm-marker"
+
+	// HeuristicPostinstallCurlPipeShell etc. are scoped to package.json's
+	// auto-run lifecycle scripts (preinstall/install/postinstall/prepare) —
+	// the npm-postinstall-worm vector — not general shell-script scanning.
+	HeuristicPostinstallCurlPipeShell    = "postinstall-curl-pipe-shell"
+	HeuristicPostinstallPowershellCradle = "postinstall-powershell-cradle"
+	HeuristicPostinstallBase64Shell      = "postinstall-base64-shell"
 )
 
 // Signature is a single detection rule.
