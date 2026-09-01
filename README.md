@@ -145,6 +145,21 @@ config.yaml, or for one run with `--no-auto-update`. `gitshield update` /
 `update-signatures` remain available to force either one on demand,
 regardless of this schedule.
 
+### Dashboard shipping
+
+If `dashboard_url` is set in config.yaml, `clone`/`pull`/`add` also ship
+any unshipped `~/.gitshield/audit.log` lines to that
+[gitshield-dashboard](https://github.com/mirzasaikatahmmed/gitshield-dashboard)
+instance in the background — at most once every ~15 minutes (tracked via
+`~/.gitshield/last-dashboard-ship`), independently of the 24h
+binary/signature schedule above. On first use, gitshield generates a
+random per-machine key (`~/.gitshield/dashboard-key`) and sends it as a
+bearer token; the dashboard auto-registers the machine on its first
+successful ingest, so there's no separate registration step. Off by
+default — gitshield never contacts an unconfigured destination. Also
+silent/best-effort, and also skipped for a single run by
+`--no-auto-update`.
+
 ### Detection rules
 
 Signatures are pluggable and versioned (`internal/signatures/default.yaml`,
@@ -197,6 +212,8 @@ signatures_file: ~/.gitshield/signatures.yaml   # merged on top of the defaults
 
 update_signatures_url: "https://raw.githubusercontent.com/your-org/gitshield-signatures/main/signatures.yaml"
 update_signatures_pubkey: "<64-hex-char ed25519 public key>"
+
+dashboard_url: "https://gitshield.saikat.com.bd"
 ```
 
 - **Allowlist** — opt-in only, never populated by default. Repos on it
@@ -206,6 +223,12 @@ update_signatures_pubkey: "<64-hex-char ed25519 public key>"
   the embedded defaults; nothing is silently overridden by ID).
 - **Severity threshold** — tune how many heuristic hits in one file
   escalate to HIGH. Exact IOC matches always escalate regardless.
+- **Dashboard** — opt-in only. If set, gitshield ships
+  `~/.gitshield/audit.log` to that [gitshield-dashboard](https://github.com/mirzasaikatahmmed/gitshield-dashboard)
+  instance in the background (at most once every ~15 min, after
+  `clone`/`pull`/`add`). Zero additional setup: gitshield generates its own
+  per-machine key locally on first use and self-registers on first ingest —
+  there's no separate registration step or dashboard-side click.
 
 ### Adding a custom signature
 

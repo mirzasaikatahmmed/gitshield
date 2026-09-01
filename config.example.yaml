@@ -51,3 +51,11 @@ signatures:
 # best-effort, never blocks the command. Set true to opt out persistently;
 # --no-auto-update opts out for a single run instead.
 disable_auto_update: false
+
+# Ships this machine's ~/.gitshield/audit.log to a gitshield-dashboard
+# instance in the background (at most once every ~15 min, after
+# clone/pull/add), so its scan history shows up there. Zero setup beyond
+# this line — gitshield generates its own per-machine key locally and
+# self-registers on first ingest. Off by default; --no-auto-update also
+# skips this for a single run.
+# dashboard_url: "https://gitshield.saikat.com.bd"
