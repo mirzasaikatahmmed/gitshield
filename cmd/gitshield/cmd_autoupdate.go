@@ -6,15 +6,27 @@ import (
 	"os"
 	"time"
 
+	"github.com/mirzasaikatahmmed/gitshield/internal/audit"
 	"github.com/mirzasaikatahmmed/gitshield/internal/autoupdate"
 	"github.com/mirzasaikatahmmed/gitshield/internal/config"
+	"github.com/mirzasaikatahmmed/gitshield/internal/dashboard"
 	"github.com/mirzasaikatahmmed/gitshield/internal/selfupdate"
 )
 
-// autoUpdateInterval bounds how often maybeAutoUpdate actually hits the
-// network, regardless of how many clone/pull/scan invocations happen in
-// between — tracked via internal/autoupdate's timestamp file.
+// autoUpdateCheckName/autoUpdateInterval bound how often maybeAutoUpdate
+// actually hits the network, regardless of how many clone/pull/scan
+// invocations happen in between — tracked via internal/autoupdate's
+// timestamp file.
+const autoUpdateCheckName = "last-auto-update-check"
 const autoUpdateInterval = 24 * time.Hour
+
+// dashboardShipCheckName/dashboardShipInterval bound how often
+// maybeShipToDashboard hits the network. Much shorter than
+// autoUpdateInterval: shipping is a cheap log-tail POST (not a binary
+// replacement or a full signature-set download), and the whole point of a
+// monitoring dashboard is for it to feel reasonably live.
+const dashboardShipCheckName = "last-dashboard-ship"
+const dashboardShipInterval = 15 * time.Minute
 
 // maybeAutoUpdate runs gitshield's background auto-update check at the
 // start of clone/pull/scan: refreshes the IOC signature set (if
@@ -47,15 +59,56 @@ func maybeAutoUpdate(gf globalFlags) {
 	if err != nil {
 		return
 	}
-	if !autoupdate.IsDue(dir, autoUpdateInterval) {
+	if !autoupdate.IsDue(dir, autoUpdateCheckName, autoUpdateInterval) {
 		return
 	}
 	// Record the attempt regardless of outcome, so an offline machine gets
 	// re-checked once per interval rather than on every single invocation.
-	defer func() { _ = autoupdate.RecordNow(dir) }()
+	defer func() { _ = autoupdate.RecordNow(dir, autoUpdateCheckName) }()
 
 	autoUpdateSignatures(cfg)
 	autoUpdateBinary()
+}
+
+// maybeShipToDashboard ships any unshipped ~/.gitshield/audit.log entries
+// to a configured gitshield-dashboard instance, at most once per
+// dashboardShipInterval. No-ops entirely unless dashboard_url is set in
+// config.yaml — gitshield never contacts an unconfigured destination on
+// its own. Best-effort and silent on any failure, same contract as
+// maybeAutoUpdate. Shares --no-auto-update's opt-out since both are
+// background network activity gitshield does on its own.
+func maybeShipToDashboard(gf globalFlags) {
+	if gf.noAutoUpdate {
+		return
+	}
+
+	cfgPath := gf.configPath
+	if cfgPath == "" {
+		p, err := config.DefaultPath()
+		if err != nil {
+			return
+		}
+		cfgPath = p
+	}
+	cfg, err := config.Load(cfgPath)
+	if err != nil || cfg.DashboardURL == "" {
+		return
+	}
+
+	dir, err := config.Dir()
+	if err != nil {
+		return
+	}
+	if !autoupdate.IsDue(dir, dashboardShipCheckName, dashboardShipInterval) {
+		return
+	}
+	defer func() { _ = autoupdate.RecordNow(dir, dashboardShipCheckName) }()
+
+	logPath, err := audit.DefaultPath()
+	if err != nil {
+		return
+	}
+	dashboard.Ship(dir, logPath, cfg.DashboardURL)
 }
 
 // autoUpdateSignatures fetches and verifies a fresh signature set, writing

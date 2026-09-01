@@ -71,6 +71,7 @@ func cmdAdd(args []string) int {
 
 	d := decide(*gf, res, repoRef)
 	logAudit("add", repoRef, res, d)
+	maybeShipToDashboard(*gf)
 	emitReport(*gf, res, repoRef, d)
 
 	if !d.proceed {

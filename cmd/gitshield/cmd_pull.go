@@ -73,6 +73,7 @@ func cmdPull(args []string) int {
 
 	d := decide(*gf, res, repoURL)
 	logAudit("pull", repoURL, res, d)
+	maybeShipToDashboard(*gf)
 	emitReport(*gf, res, repoURL, d)
 
 	if !d.proceed {

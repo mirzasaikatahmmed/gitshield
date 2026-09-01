@@ -63,6 +63,28 @@ func TestEffectiveSignaturesWithoutDefaultFileIsJustDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadParsesDashboardURL(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "config.yaml")
+	if err := os.WriteFile(path, []byte(`dashboard_url: "https://gitshield.saikat.com.bd"`+"\n"), 0o600); err != nil {
+		t.Fatalf("writing config.yaml: %v", err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.DashboardURL != "https://gitshield.saikat.com.bd" {
+		t.Fatalf("expected dashboard_url to be parsed, got %q", c.DashboardURL)
+	}
+}
+
+func TestLoadDefaultsDashboardURLToEmpty(t *testing.T) {
+	var c Config
+	if c.DashboardURL != "" {
+		t.Fatalf("expected DashboardURL to default to empty (opt-in only), got %q", c.DashboardURL)
+	}
+}
+
 func TestIsAllowlisted(t *testing.T) {
 	c := Config{Allowlist: []string{"https://github.com/org/repo.git"}}
 	if !c.IsAllowlisted("https://github.com/org/repo") {

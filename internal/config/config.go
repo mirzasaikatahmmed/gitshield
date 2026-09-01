@@ -44,6 +44,13 @@ type Config struct {
 	// reachable). `gitshield update` / `update-signatures` remain
 	// available manually either way. Default: auto-update enabled.
 	DisableAutoUpdate bool `yaml:"disable_auto_update"`
+
+	// DashboardURL, if set, is the base URL of a gitshield-dashboard
+	// instance (e.g. "https://gitshield.saikat.com.bd") that gitshield ships
+	// its local ~/.gitshield/audit.log to in the background, at most once
+	// per ~15 minutes. Off by default — gitshield never contacts an
+	// unconfigured destination on its own. See internal/dashboard.
+	DashboardURL string `yaml:"dashboard_url"`
 }
 
 // SeverityConfig lets users tune the heuristic-count threshold that

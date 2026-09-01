@@ -66,6 +66,7 @@ func cmdClone(args []string) int {
 
 	d := decide(*gf, res, repoURL)
 	logAudit("clone", repoURL, res, d)
+	maybeShipToDashboard(*gf)
 	emitReport(*gf, res, repoURL, d)
 
 	if !d.proceed {
