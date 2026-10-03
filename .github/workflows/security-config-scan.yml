@@ -12,9 +12,36 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Scan for known config-malware IOCs
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -uo pipefail
           FOUND=0
+
+          # Paths listed in .malware-guard-allow (one prefix per line, relative to the
+          # repo root) are skipped: gitshield's signatures and test samples must contain
+          # the IOCs it detects. Every other file is still scanned.
+          ALLOW=()
+          if [[ -f .malware-guard-allow ]]; then
+            while IFS= read -r line; do
+              line="${line%%#*}"; line="${line//[[:space:]]/}"
+              [[ -n "$line" ]] && ALLOW+=("./${line}")
+            done < .malware-guard-allow
+          fi
+          allowed() {
+            local f="$1" p
+            for p in "${ALLOW[@]}"; do
+              [[ "$f" == "$p" || "$f" == "${p%/}/"* ]] && return 0
+            done
+            return 1
+          }
+
+          # A pull request that changes the allow-list is flagged so a reviewer sees it.
+          if [[ -n "${BASE_REF}" ]] && git fetch -q --depth=1 origin "${BASE_REF}" 2>/dev/null; then
+            if ! git diff --quiet FETCH_HEAD -- .malware-guard-allow 2>/dev/null; then
+              echo "::warning file=.malware-guard-allow::This pull request changes which paths the malware scan skips. Review the change before merging."
+            fi
+          fi
 
           # Known campaign IOCs (config-malware worm + DPRK tailwind.config implant)
           PATTERNS=(
@@ -34,6 +61,7 @@ jobs:
               --exclude=security-config-scan.yml --exclude=.gitignore \
               --exclude=*.md --exclude=*.mdx \
               --exclude=check-malware-configs.mjs --exclude=malware-scan-report.txt 2>/dev/null || true)
+            hits=$(printf '%s\n' "$hits" | while read -r f; do [[ -n "$f" ]] && ! allowed "$f" && echo "$f"; done)
             if [[ -n "$hits" ]]; then
               echo "::error::Known config-malware IOC matched pattern: $pat"
               echo "$hits" | while read -r f; do echo "::error file=$f::malware signature found"; done
@@ -43,6 +71,7 @@ jobs:
 
           # font/asset files that are actually JS text (the dropper disguise trick)
           while IFS= read -r -d '' f; do
+            allowed "$f" && continue
             ftype=$(file -b "$f" 2>/dev/null)
             if [[ "$ftype" == *"JavaScript"* || "$ftype" == *"ASCII text"* ]]; then
               echo "::error file=$f::font/asset file is actually text/JS, not a real font ($ftype)"
@@ -53,6 +82,7 @@ jobs:
 
           # .vscode auto-run tasks (runOn: folderOpen is the exact trigger used by this campaign)
           while IFS= read -r -d '' f; do
+            allowed "$f" && continue
             if grep -q "folderOpen" "$f" 2>/dev/null; then
               echo "::error file=$f::.vscode task set to auto-run on folderOpen - review manually"
               FOUND=1
