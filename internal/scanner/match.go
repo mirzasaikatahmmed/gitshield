@@ -80,6 +80,14 @@ func runHeuristic(path string, lines [][]byte, text string, sig signatures.Signa
 		return heuristicPostinstallPowershellCradle(path, lines, sig)
 	case signatures.HeuristicPostinstallBase64Shell:
 		return heuristicPostinstallBase64Shell(path, lines, sig)
+	case signatures.HeuristicFakeFont:
+		return fakeFontFinding(path, []byte(text), sig)
+	case signatures.HeuristicVSCodeAutorun:
+		return vscodeAutorunFinding(path, lines, sig)
+	case signatures.HeuristicVSCodeAutoTasks:
+		return vscodeAutoTasksFinding(path, lines, sig)
+	case signatures.HeuristicHiddenWhitespace:
+		return hiddenWhitespaceFindings(path, lines, sig, deep)
 	default:
 		return nil
 	}

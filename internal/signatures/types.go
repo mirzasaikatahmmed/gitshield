@@ -30,6 +30,13 @@ const (
 	HeuristicPostinstallCurlPipeShell    = "postinstall-curl-pipe-shell"
 	HeuristicPostinstallPowershellCradle = "postinstall-powershell-cradle"
 	HeuristicPostinstallBase64Shell      = "postinstall-base64-shell"
+
+	// VS Code / fake-font loader vector (2026 worm variants): the payload ships
+	// as a "font" file and a .vscode/tasks.json runs it with node on folder open.
+	HeuristicFakeFont         = "fake-font"
+	HeuristicVSCodeAutorun    = "vscode-autorun-task"
+	HeuristicVSCodeAutoTasks  = "vscode-auto-tasks-enabled"
+	HeuristicHiddenWhitespace = "hidden-whitespace-payload"
 )
 
 // Signature is a single detection rule.
