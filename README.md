@@ -4,9 +4,13 @@ Pre-clone/pull malware scanner for the config-file supply-chain attack
 described at [saikat.com.bd/blog/github-config-malware-prevention](https://saikat.com.bd/blog/github-config-malware-prevention):
 obfuscated JavaScript appended after the legitimate `export` in
 `eslint.config.*`, `postcss.config.*`, `prettier.config.*`,
-`tailwind.config.*`, and `.eslintrc*` files. The payload only runs when
-Node loads these files — during `npm install`, an IDE's linter, or
-`npm run dev`/`build` — **not** during `git clone`/`git pull` themselves.
+`tailwind.config.*`, `vite.config.*`, `next.config.*` and `.eslintrc*` files,
+plus its 2026 VS Code variant: a loader disguised as a font
+(`public/fonts/fa-solid-900.woff2`, `fa-solid-300.llf`, …) that a committed
+`.vscode/tasks.json` runs with `node` as soon as the folder is opened. The
+payload only runs when Node loads these files — during `npm install`, an IDE's
+linter or folder-open task, or `npm run dev`/`build` — **not** during
+`git clone`/`git pull` themselves.
 That gap is the window gitshield uses: it clones into quarantine / fetches
 without merging, scans, and only then lets the content touch anywhere a
 build tool could load it.
@@ -99,8 +103,9 @@ gitshield scan . --history
 # CI-friendly JSON output
 gitshield scan . --json
 
-# Also scan arbitrary top-level *.js/*.mjs/*.cjs files (not just the known
-# config filenames) with the same heuristics — slower, broader coverage
+# Also scan arbitrary *.js/*.mjs/*.cjs files (not just the known config
+# filenames): top-level ones with the config heuristics, nested ones for
+# payloads hidden after a long whitespace run — slower, broader coverage
 gitshield scan . --deep
 ```
 
@@ -171,6 +176,21 @@ the campaign writeup:
   runtime markers, packed-footer signatures, `x-payload-b64` /
   `/0x/cls` / `/0x/ls` payload markers, the known C2 Ethereum address,
   and the `temp_auto_push.bat` / `temp_interactive_push.bat` worm markers.
+- 2026 variant markers: `global.i = '<id>'` with any spacing (A8 and A9
+  families, two- or three-part IDs such as `A8-7753` and `A9-8463-11`),
+  `global['!'] = '<id>'` for every observed ID, `global['_t_*']` runtime
+  globals, the `_0x4925` string table, and the C2 hosts `166.88.134.75` and
+  `260120.vercel.app`.
+- Fake-font loader: any `.woff`/`.woff2`/`.ttf`/`.otf`/`.eot`/`.llf` file
+  (at any depth, outside `node_modules`/`dist`/`build`) that is plain-text
+  JavaScript instead of a real font. Real fonts are recognised by their magic
+  number and are never flagged.
+- VS Code: a `.vscode/tasks.json` that runs code on `"runOn": "folderOpen"`
+  (node on a font file, or `curl`/`wget` piped into a shell) is HIGH; a
+  committed `.vscode/settings.json` that sets `task.allowAutomaticTasks` to
+  `on` is a heuristic hit.
+- Hidden payload: code pushed off-screen by a run of 20+ spaces/tabs on the
+  same line, in config files.
 - Heuristics: a line over ~2000 chars in a target config file (packed
   payload signal), `child_process` spawn with `detached: true` combined
   with `eval`/a dynamic `require`/`import` of remote content, an
@@ -188,13 +208,31 @@ one heuristic hit is MODERATE. See `internal/signatures/default.yaml` for
 the full set and `internal/scanner/match.go` for how heuristics are
 implemented.
 
-By default gitshield only scans the known config filenames above (plus
-`package.json`) — this keeps scans fast and predictable. Pass `--deep` to
-`scan`/`clone`/`pull`/`add` to additionally scan any top-level
-`*.js`/`*.mjs`/`*.cjs` file with the same config-file heuristics
-(long-line, spawn+eval, eth-address). It's opt-in and off by default so
-existing behavior doesn't change; it's restricted to top-level files (not
-recursive into `node_modules` etc.) to keep it fast.
+By default gitshield scans the known config filenames above (plus
+`package.json`, font files and `.vscode/tasks.json`/`settings.json`) — this
+keeps scans fast and predictable. Pass `--deep` to `scan`/`clone`/`pull`/`add`
+to additionally scan:
+
+- any top-level `*.js`/`*.mjs`/`*.cjs` file with the same config-file
+  heuristics (long-line, spawn+eval, eth-address), and
+- every nested `*.js`/`*.mjs`/`*.cjs` file outside `node_modules`, `dist`,
+  `build`, `.next`, `vendor` and `coverage` for a payload hidden after a long
+  whitespace run (the campaign has planted these in files like
+  `routes/admin.js`). Because minified bundles can share that shape, a nested
+  file is only reported when a campaign marker follows the whitespace, and
+  the plain string signatures are not applied to nested files.
+
+It's opt-in and off by default so existing behavior doesn't change.
+
+`--history` walks commits that touched any of these file classes at any
+depth (it uses `:(glob)**/` pathspecs, so nested files such as
+`apps/web/postcss.config.js` are included, not only files at the repository
+root).
+
+Measured on 733 repositories from the 2026 incident (431 infected): the
+infected file itself is flagged in 430/431 infected repos (431/431 with
+`--deep`), up from 214/431 with the previous signature set, and none of the
+new rules fires on the 302 clean repos.
 
 ## Configuration
 
