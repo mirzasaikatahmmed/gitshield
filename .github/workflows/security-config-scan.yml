@@ -25,7 +25,7 @@ jobs:
           if [[ -f .malware-guard-allow ]]; then
             while IFS= read -r line; do
               line="${line%%#*}"; line="${line//[[:space:]]/}"
-              [[ -n "$line" ]] && ALLOW+=("./${line}")
+              if [[ -n "$line" ]]; then ALLOW+=("./${line}"); fi
             done < .malware-guard-allow
           fi
           allowed() {
@@ -61,7 +61,9 @@ jobs:
               --exclude=security-config-scan.yml --exclude=.gitignore \
               --exclude=*.md --exclude=*.mdx \
               --exclude=check-malware-configs.mjs --exclude=malware-scan-report.txt 2>/dev/null || true)
-            hits=$(printf '%s\n' "$hits" | while read -r f; do [[ -n "$f" ]] && ! allowed "$f" && echo "$f"; done)
+            hits=$(printf '%s\n' "$hits" | while read -r f; do
+              if [[ -n "$f" ]] && ! allowed "$f"; then echo "$f"; fi
+            done || true)
             if [[ -n "$hits" ]]; then
               echo "::error::Known config-malware IOC matched pattern: $pat"
               echo "$hits" | while read -r f; do echo "::error file=$f::malware signature found"; done
@@ -71,7 +73,7 @@ jobs:
 
           # font/asset files that are actually JS text (the dropper disguise trick)
           while IFS= read -r -d '' f; do
-            allowed "$f" && continue
+            if allowed "$f"; then continue; fi
             ftype=$(file -b "$f" 2>/dev/null)
             if [[ "$ftype" == *"JavaScript"* || "$ftype" == *"ASCII text"* ]]; then
               echo "::error file=$f::font/asset file is actually text/JS, not a real font ($ftype)"
@@ -82,7 +84,7 @@ jobs:
 
           # .vscode auto-run tasks (runOn: folderOpen is the exact trigger used by this campaign)
           while IFS= read -r -d '' f; do
-            allowed "$f" && continue
+            if allowed "$f"; then continue; fi
             if grep -q "folderOpen" "$f" 2>/dev/null; then
               echo "::error file=$f::.vscode task set to auto-run on folderOpen - review manually"
               FOUND=1
