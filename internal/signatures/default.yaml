@@ -1,5 +1,5 @@
 version: 1
-updated: "2026-08-27"
+updated: "2026-10-03"
 signatures:
   # --- Exact known-campaign IOCs (source: https://saikat.com.bd/blog/github-config-malware-prevention) ---
   - id: campaign-id-a8-974-3
@@ -140,6 +140,91 @@ signatures:
     pattern: "x-payload-b64"
     description: "Known base64 payload transport header/marker"
     exact: true
+
+  # --- 2026 worm variants (seen across 431 infected repos, Jan-Sep 2026) ---
+  # The payload marker is written with and without spaces, with A8/A9
+  # prefixes and two- or three-part IDs (global.i = 'A8-1144-1',
+  # global.i="A9-8463-11", global.i = 'A8-7753'), or as global['!']='9-8463-11'.
+  - id: campaign-global-i-regex
+    kind: regex
+    pattern: "global\\.i\\s*=\\s*['\"][A-Z]?\\d+-\\d+(?:-\\d+)?['\"]"
+    description: "Campaign marker assignment global.i = '<campaign id>' (any spacing, A8/A9 families)"
+    exact: true
+
+  - id: campaign-global-bang-regex
+    kind: regex
+    pattern: "global\\[['\"]!['\"]\\]\\s*=\\s*['\"]\\d+-\\d+(?:-\\d+)?['\"]"
+    description: "Campaign marker assignment global['!'] = '<campaign id>' (all observed IDs, not just 8-270-2)"
+    exact: true
+
+  - id: campaign-global-t-regex
+    kind: regex
+    pattern: "global\\[['\"]_t_[a-z0-9]['\"]\\]\\s*="
+    description: "Campaign runtime global assignment (global['_t_s'], global['_t_c'], ...)"
+    exact: true
+
+  - id: campaign-id-a9-regex
+    kind: regex
+    pattern: "['\"]A9-\\d{3,5}-\\d{1,3}['\"]"
+    description: "Campaign identifier pattern (A9-####-# family, e.g. A9-8463-11)"
+    exact: true
+
+  - id: obfuscator-string-table
+    kind: string
+    pattern: "_0x4925"
+    description: "String-table function name of the campaign's obfuscated payload"
+    exact: true
+
+  - id: c2-ip-166-88-134-75
+    kind: string
+    pattern: "166.88.134.75"
+    description: "Known command-and-control server address"
+    exact: true
+
+  - id: c2-host-260120-vercel
+    kind: string
+    pattern: "260120.vercel.app"
+    description: "Known stage-two download host used by the VS Code folder-open task"
+    exact: true
+
+  - id: fake-font-loader
+    kind: heuristic
+    heuristic: fake-font
+    description: "Font file (.woff/.woff2/.ttf/.otf/.eot/.llf) that is really JavaScript: the campaign's loader"
+    exact: true
+    # Detects: public/fonts/fa-solid-400.woff2, fa-solid-900.woff2 (also in
+    # nested folders), fa-solid-300.llf and fa-solid-600.eot whose content is
+    # plain-text JavaScript. Why it's not a false-positive magnet: real fonts
+    # are binary and start with a known magic number (wOF2, wOFF, OTTO,
+    # 0x00010000, or the EOT 0x504C marker); the check also requires the file
+    # to be mostly printable text AND to contain code shapes.
+
+  - id: vscode-autorun-loader-task
+    kind: heuristic
+    heuristic: vscode-autorun-task
+    description: ".vscode/tasks.json runs code when the folder is opened (node on a font file, or curl/wget piped into a shell)"
+    exact: true
+    # Detects: "runOn": "folderOpen" together with `node ./public/fonts/x.woff2`
+    # or `curl https://.../settings/linux | sh`. Why it's not a false-positive
+    # magnet: legitimate folder-open tasks (a watcher, a lint run) never execute
+    # a font file or pipe a download into a shell.
+
+  - id: vscode-auto-tasks-enabled
+    kind: heuristic
+    heuristic: vscode-auto-tasks-enabled
+    description: ".vscode/settings.json turns on automatic tasks, so a folder-open task runs without a prompt"
+    exact: false
+
+  - id: hidden-whitespace-payload
+    kind: heuristic
+    heuristic: hidden-whitespace-payload
+    description: "Code hidden after a long run of spaces/tabs on the same line (pushes the payload off-screen in editors)"
+    exact: false
+    # In config files this shape is a heuristic hit (usually alongside
+    # long-line, giving HIGH). With --deep it also checks every *.js/*.mjs/*.cjs
+    # file outside node_modules/dist/build, but there it only reports when a
+    # campaign marker follows the whitespace, because minified bundles can
+    # share the shape; such a hit is reported as an exact match.
 
   # --- Heuristics (fuzzy, contribute to MODERATE/HIGH via count thresholds) ---
   - id: heuristic-long-line

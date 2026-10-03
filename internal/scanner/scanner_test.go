@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/mirzasaikatahmmed/gitshield/internal/signatures"
@@ -157,10 +158,23 @@ func TestScanDirAggregatesWorstSeverity(t *testing.T) {
 	}
 }
 
-func TestTargetPathspecsMatchesTargetGlobs(t *testing.T) {
+func TestTargetPathspecsCoverEveryFileClassAtAnyDepth(t *testing.T) {
 	specs := TargetPathspecs()
-	if len(specs) != len(targetGlobs) {
-		t.Fatalf("TargetPathspecs() len = %d, want %d", len(specs), len(targetGlobs))
+	want := len(targetGlobs) + len(fontExts) + 2
+	if len(specs) != want {
+		t.Fatalf("TargetPathspecs() len = %d, want %d", len(specs), want)
+	}
+	seen := map[string]bool{}
+	for _, s := range specs {
+		if !strings.HasPrefix(s, ":(glob)**/") {
+			t.Errorf("pathspec %q is not a recursive glob; nested files would be missed in history", s)
+		}
+		seen[s] = true
+	}
+	for _, s := range []string{":(glob)**/eslint.config.mjs", ":(glob)**/*.woff2", ":(glob)**/*.llf", ":(glob)**/.vscode/tasks.json"} {
+		if !seen[s] {
+			t.Errorf("missing pathspec %q", s)
+		}
 	}
 }
 

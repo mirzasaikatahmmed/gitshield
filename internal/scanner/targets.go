@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"path/filepath"
+	"strings"
 )
 
 // targetGlobs are matched against the base filename only (not the full
@@ -27,10 +28,19 @@ var targetGlobs = []string{
 	"next.config.js",
 	"next.config.mjs",
 	"next.config.ts",
+	"next.config.cjs",
 	"babel.config.js",
+	"babel.config.cjs",
+	"babel.config.mjs",
 	"jest.config.js",
+	"jest.config.cjs",
 	"jest.config.mjs",
 	"jest.config.ts",
+	"vite.config.js",
+	"vite.config.mjs",
+	"vite.config.cjs",
+	"vite.config.ts",
+	"vite.config.mts",
 	"config.bat",
 	"temp_auto_push.bat",
 	"temp_interactive_push.bat",
@@ -47,6 +57,66 @@ var targetGlobs = []string{
 // deepScanExts are the extensions considered by --deep for arbitrary
 // top-level JS files that aren't one of the known target filenames above.
 var deepScanExts = []string{".js", ".mjs", ".cjs"}
+
+// fontExts are the extensions the fake-font loader hides behind. Every file
+// with one of these is checked, at any depth, because the loader is planted in
+// nested folders such as src/pages/.../public/fonts/fa-solid-900.woff2.
+var fontExts = []string{".woff", ".woff2", ".ttf", ".otf", ".eot", ".llf"}
+
+// vendoredDirs are skipped for the font check and the recursive --deep script
+// check: they hold third-party code, never the planted loader, and walking
+// them is slow and noisy.
+var vendoredDirs = map[string]bool{
+	"node_modules": true, "dist": true, "build": true, ".next": true, "vendor": true, "coverage": true,
+}
+
+// IsFontFile reports whether path has a font extension used by the loader.
+func IsFontFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	for _, e := range fontExts {
+		if ext == e {
+			return true
+		}
+	}
+	return false
+}
+
+// IsVSCodeTasks reports whether path is a .vscode/tasks.json file.
+func IsVSCodeTasks(path string) bool {
+	p := filepath.ToSlash(path)
+	return p == ".vscode/tasks.json" || strings.HasSuffix(p, "/.vscode/tasks.json")
+}
+
+// IsVSCodeSettings reports whether path is a .vscode/settings.json file.
+func IsVSCodeSettings(path string) bool {
+	p := filepath.ToSlash(path)
+	return p == ".vscode/settings.json" || strings.HasSuffix(p, "/.vscode/settings.json")
+}
+
+// IsDeepScriptFile reports whether path is a *.js/*.mjs/*.cjs file at any
+// depth outside vendored folders. --deep checks these for payloads hidden
+// after a long whitespace run (seen in files like routes/admin.js).
+func IsDeepScriptFile(path string) bool {
+	if inVendoredDir(path) {
+		return false
+	}
+	ext := filepath.Ext(path)
+	for _, e := range deepScanExts {
+		if ext == e {
+			return true
+		}
+	}
+	return false
+}
+
+func inVendoredDir(path string) bool {
+	for _, part := range strings.Split(filepath.ToSlash(filepath.Dir(path)), "/") {
+		if vendoredDirs[part] {
+			return true
+		}
+	}
+	return false
+}
 
 // IsDeepTargetFile reports whether path is a top-level (not nested in a
 // subdirectory) *.js/*.mjs/*.cjs file eligible for the --deep heuristic
@@ -71,14 +141,28 @@ func IsDeepTargetFile(path string) bool {
 // fixed target filenames, and additionally true for top-level *.js/*.mjs/*.cjs
 // files when deep is enabled (the --deep flag).
 func IsScanTarget(path string, deep bool) bool {
-	return IsTargetFile(path) || (deep && IsDeepTargetFile(path))
+	if IsTargetFile(path) || IsVSCodeTasks(path) || IsVSCodeSettings(path) {
+		return true
+	}
+	if IsFontFile(path) && !inVendoredDir(path) {
+		return true
+	}
+	return deep && (IsDeepTargetFile(path) || IsDeepScriptFile(path))
 }
 
-// TargetPathspecs returns the base filenames gitshield scans, for use as
-// git log pathspecs when walking history.
+// TargetPathspecs returns git pathspecs for every file class gitshield scans,
+// for walking history. They use :(glob)**/ so nested files (apps/web/
+// postcss.config.js, src/.../public/fonts/fa-solid-900.woff2) are matched;
+// a bare filename pathspec would only match at the repository root.
 func TargetPathspecs() []string {
-	out := make([]string, len(targetGlobs))
-	copy(out, targetGlobs)
+	out := make([]string, 0, len(targetGlobs)+len(fontExts)+2)
+	for _, g := range targetGlobs {
+		out = append(out, ":(glob)**/"+g)
+	}
+	for _, e := range fontExts {
+		out = append(out, ":(glob)**/*"+e)
+	}
+	out = append(out, ":(glob)**/.vscode/tasks.json", ":(glob)**/.vscode/settings.json")
 	return out
 }
 

@@ -101,7 +101,16 @@ func (e *Engine) ScanBytes(path string, content []byte) []Finding {
 	lines := splitLines(content)
 	text := string(content)
 
+	// Font files are usually binary, and arbitrary nested JS files (--deep)
+	// can legitimately mention strings like "config.bat": for both, only the
+	// heuristics scoped to them run, not the plain string/regex signatures.
+	scopedOnly := IsFontFile(path) ||
+		(e.Deep && IsDeepScriptFile(path) && !IsTargetFile(path) && !IsDeepTargetFile(path))
+
 	for _, sig := range e.Sigs.Signatures {
+		if scopedOnly && sig.Kind != signatures.KindHeuristic {
+			continue
+		}
 		switch sig.Kind {
 		case signatures.KindString:
 			findings = append(findings, matchString(path, lines, sig)...)
